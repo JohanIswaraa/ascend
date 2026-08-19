@@ -1,0 +1,1170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="ASCEND" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="theme-color" content="#0A0A0F" />
+<link rel="apple-touch-icon" href="icon-180.png" />
+<link rel="icon" href="icon-192.png" />
+<link rel="manifest" href="manifest.webmanifest" />
+<title>ASCEND</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800;900&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  html, body { margin: 0; height: 100%; background: #0A0A0F; -webkit-tap-highlight-color: transparent; }
+  * { -webkit-touch-callout: none; box-sizing: border-box; }
+  input, textarea { -webkit-user-select: text; user-select: text; }
+  ::selection { background: #7C5CFF; color: #0A0A0F; }
+  .phone-shell { position: fixed; inset: 0; overflow: hidden; }
+  .app-root { position: absolute; inset: 0; display: flex; flex-direction: column; overflow: hidden;
+    background: #0A0A0F; overscroll-behavior: none; touch-action: manipulation; user-select: none;
+    color: #F2F1F7; }
+  .content { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  @media (min-width: 720px) {
+    body { display: flex; align-items: center; justify-content: center;
+      background: radial-gradient(circle at 50% 15%, #171722 0%, #08080B 65%); }
+    .phone-shell { position: relative; inset: auto; width: 393px; height: 852px; border-radius: 56px;
+      box-shadow: 0 0 0 3px #050506, 0 0 0 14px #1B1B22, 0 60px 120px -30px rgba(0,0,0,.85), 0 0 80px rgba(124,92,255,.10);
+    }
+    .phone-shell::after { content: ''; position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+      width: 126px; height: 37px; background: #000; border-radius: 22px; z-index: 9999; pointer-events: none; }
+    .phone-shell::before { content: ''; position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+      width: 134px; height: 5px; background: rgba(255,255,255,.55); border-radius: 3px; z-index: 9999; pointer-events: none; }
+    .app-root { padding-top: 28px; }
+  }
+</style>
+</head>
+<body>
+<div class="phone-shell"><div id="root"></div></div>
+<script type="text/babel" data-presets="react">
+const { useState, useMemo, useRef, useCallback, useEffect, createContext, useContext } = React;
+
+/* ---- inline icons ---- */
+function Ico({ size = 20, color = "currentColor", strokeWidth = 2, className, style, fill = "none", children }) {
+  return (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24"
+    fill={fill} stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"
+    className={className} style={style}>{children}</svg>);
+}
+const Check = (p) => <Ico {...p}><polyline points="20 6 9 17 4 12" /></Ico>;
+const Plus = (p) => <Ico {...p}><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></Ico>;
+const X = (p) => <Ico {...p}><line x1="6" y1="6" x2="18" y2="18" /><line x1="18" y1="6" x2="6" y2="18" /></Ico>;
+const Trash2 = (p) => <Ico {...p}><polyline points="3 6 21 6" /><path d="M8 6V4h8v2" /><path d="M6 6l1 14h10l1-14" /></Ico>;
+const TrendingUp = (p) => <Ico {...p}><polyline points="3 17 9 11 13 15 21 7" /><polyline points="14 7 21 7 21 14" /></Ico>;
+const Zap = (p) => <Ico {...p}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></Ico>;
+const ShoppingBag = (p) => <Ico {...p}><path d="M6 8h12l-1 12H7z" /><path d="M9 8a3 3 0 0 1 6 0" /></Ico>;
+const BarChart3 = (p) => <Ico {...p}><line x1="4" y1="20" x2="4" y2="10" /><line x1="10" y1="20" x2="10" y2="4" /><line x1="16" y1="20" x2="16" y2="13" /></Ico>;
+const User = (p) => <Ico {...p}><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></Ico>;
+const Settings = (p) => <Ico {...p}><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></Ico>;
+
+/* ---- persistence + date helpers ---- */
+const KEY = "terra-v6";
+function load() { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } }
+function save(o) { try { localStorage.setItem(KEY, JSON.stringify(o)); } catch (e) {} }
+function todayStr() { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+function diffDays(a, b) { if (!a) return 0; const da = new Date(a + "T00:00:00"), db = new Date(b + "T00:00:00"); return Math.round((db - da) / 86400000); }
+function addDays(a, n) { const d = new Date(a + "T00:00:00"); d.setDate(d.getDate() + n); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+function lastNDates(n) {
+  const out = []; const now = new Date();
+  for (let i = n - 1; i >= 0; i--) { const d = new Date(now); d.setDate(d.getDate() - i); out.push(d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0")); }
+  return out;
+}
+function bestWeekPct(dayLog) {
+  if (!dayLog.length) return 0;
+  let best = 0;
+  for (let i = 0; i < dayLog.length; i++) {
+    const w = dayLog.slice(Math.max(0, i - 6), i + 1);
+    const sum = w.reduce((a, d) => a + (d.total ? d.done / d.total : 0), 0);
+    best = Math.max(best, sum / w.length);
+  }
+  return Math.round(best * 100);
+}
+function prettyDate(d) { const dt = new Date(d + "T00:00:00"); return dt.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }); }
+
+/* ==================================================================
+   TERRA — you are the stock. ISWARA CAPITAL (ISWR) moves with your
+   consistency, habits or assets. Cash you earn builds your character:
+   outfits, gear, a garage, and property. Themes are free, in Settings.
+   Day rollover is fully automatic — tied to the real clock, never a button.
+================================================================== */
+
+const C = {
+  app: "#0A0A0F", surf: "#15151D", surf2: "#1D1D27", line: "#2A2A38",
+  ink: "#F2F1F7", soft: "#8A8A9B",
+  ember: "#FF5C72", gold: "#F5B429", good: "#2ED573",
+};
+const SYS = "-apple-system, 'SF Pro Text', system-ui, sans-serif";
+const DISPLAY = "'Manrope', -apple-system, system-ui, sans-serif";
+const MONO = "'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace";
+const SHADOW = "0 1px 0 rgba(255,255,255,.04) inset, 0 16px 40px rgba(0,0,0,.55)";
+const lbl = { fontSize: 10.5, letterSpacing: "0.12em", textTransform: "uppercase", color: C.soft, fontWeight: 700, fontFamily: MONO };
+const multiplier = (s) => 1 + Math.min(s, 20) * 0.12;
+const DIFF_MULT = { light: 0.7, standard: 1, hard: 1.4 };
+const reward = (base, streak, difficulty) => Math.round(base * multiplier(streak) * (DIFF_MULT[difficulty] || 1));
+const BASE_PRICE = 100;
+const priceBumpPct = (h) => 0.006 * (h.base / 15) * multiplier(h.streak) * (DIFF_MULT[h.difficulty] || 1);
+const ASSET_BUMP = 1.0015;
+const ASSET_DROP = 0.9985;
+
+const START = [
+  { id: 1, name: "Drink water", emoji: "💧", base: 10, difficulty: "standard", streak: 0, best: 0, total: 0, doneToday: false, log: [] },
+  { id: 2, name: "Read 10 pages", emoji: "📖", base: 15, difficulty: "standard", streak: 0, best: 0, total: 0, doneToday: false, log: [] },
+  { id: 3, name: "Stretch", emoji: "🧘", base: 20, difficulty: "standard", streak: 0, best: 0, total: 0, doneToday: false, log: [] },
+  { id: 4, name: "Lights out early", emoji: "🌙", base: 15, difficulty: "standard", streak: 0, best: 0, total: 0, doneToday: false, log: [] },
+];
+const EMOJIS = ["✨", "🧘", "🥗", "💪", "🎸", "🧹", "✍️", "🌱", "☀️", "📵"];
+const ASSET_ICONS = ["💰", "📈", "🏦", "💪", "⚖️", "📚", "🎯", "🏠"];
+const START_ASSETS = [{ id: 1, name: "Savings", emoji: "💰", prefix: "$", value: 0, history: [] }];
+
+const THEMES = [
+  { id: "violet", name: "Voltage", accent: "#7C5CFF", accent2: "#5B3DFF" },
+  { id: "cyan", name: "Frost", accent: "#33C9E8", accent2: "#1AA8C9" },
+  { id: "crimson", name: "Ember", accent: "#FF4D6A", accent2: "#E0304F" },
+  { id: "gold", name: "Aurum", accent: "#F5B429", accent2: "#D89A12" },
+  { id: "emerald", name: "Jade", accent: "#2ED573", accent2: "#1CB85E" },
+];
+
+const ITEMS = [
+  { id: "outfit_formal", slot: "outfit", name: "Formal", c1: "#1F2A44", c2: "#0F1626", price: 200 },
+  { id: "outfit_athletic", slot: "outfit", name: "Athletic", c1: "#C23B4D", c2: "#7A1F2B", price: 180 },
+  { id: "outfit_gold", slot: "outfit", name: "Street Gold", c1: "#3A3F4E", c2: "#B98A2E", price: 500 },
+  { id: "hat_cap", slot: "head", name: "Cap", emoji: "🧢", price: 80 },
+  { id: "hat_top", slot: "head", name: "Top Hat", emoji: "🎩", price: 150 },
+  { id: "hat_crown", slot: "head", name: "Crown", emoji: "👑", price: 400 },
+  { id: "aura_halo", slot: "aura", name: "Halo", style: "halo", price: 120 },
+  { id: "aura_flame", slot: "aura", name: "Flame", style: "flame", price: 220 },
+  { id: "aura_stars", slot: "aura", name: "Starlight", style: "stars", price: 320 },
+  { id: "pet_bird", slot: "sidekick", name: "Sparrow", emoji: "🐦", price: 150 },
+  { id: "pet_butterfly", slot: "sidekick", name: "Butterfly", emoji: "🦋", price: 150 },
+  { id: "pet_dragon", slot: "sidekick", name: "Dragon", emoji: "🐉", price: 600 },
+  { id: "car_bike", slot: "car", name: "Motorbike", emoji: "🏍️", price: 300 },
+  { id: "car_sedan", slot: "car", name: "Sedan", emoji: "🚗", price: 800 },
+  { id: "car_sports", slot: "car", name: "Sports Car", emoji: "🏎️", price: 2000 },
+  { id: "car_super", slot: "car", name: "Hypercar", emoji: "🚀", price: 5000 },
+  { id: "prop_apt", slot: "property", name: "Apartment", emoji: "🏢", price: 1500 },
+  { id: "prop_house", slot: "property", name: "House", emoji: "🏡", price: 4000 },
+  { id: "prop_villa", slot: "property", name: "Villa", emoji: "🏖️", price: 9000 },
+  { id: "prop_mansion", slot: "property", name: "Mansion", emoji: "🏰", price: 18000 },
+];
+const SLOTS = ["outfit", "head", "aura", "sidekick", "car", "property"];
+const SLOT_LABELS = { outfit: "Outfit", head: "Head", aura: "Aura", sidekick: "Sidekick", car: "Garage", property: "Properties" };
+const STAGE_THRESH = [0, 25, 75, 150, 300, 500];
+function stageFor(totalDone) { let s = 1; for (let i = 0; i < STAGE_THRESH.length; i++) if (totalDone >= STAGE_THRESH[i]) s = i + 1; return s; }
+function nextStageInfo(totalDone) {
+  const stage = stageFor(totalDone);
+  const min = STAGE_THRESH[stage - 1];
+  const next = STAGE_THRESH[stage];
+  const progress = next != null ? Math.min(1, (totalDone - min) / (next - min)) : 1;
+  return { stage, next, progress };
+}
+function resolveEquipped(equipped) {
+  const find = (id) => ITEMS.find((i) => i.id === id);
+  const out = {};
+  SLOTS.forEach((slot) => { out[slot] = equipped[slot] ? (find(equipped[slot]) || null) : null; });
+  return out;
+}
+
+const ThemeCtx = createContext({ accent: "#7C5CFF", accent2: "#5B3DFF" });
+function useAccent() { return useContext(ThemeCtx); }
+
+/* ---- day-close reducer: the ONLY place a day advances, driven by the real clock ---- */
+function closeDay(s, dateStr) {
+  const done = s.habits.filter((h) => h.doneToday).length;
+  const total = s.habits.length;
+  const streak = done > 0 ? s.streak + 1 : 0;
+  const bestStreakEver = Math.max(s.bestStreakEver, streak);
+  const dayLog = [...s.dayLog, { date: dateStr, done, total }].slice(-120);
+  const habits = s.habits.map((h) => {
+    const hs = h.doneToday ? h.streak : 0;
+    return { ...h, streak: hs, best: Math.max(h.best || 0, hs), log: h.doneToday ? [...(h.log || []), dateStr].slice(-60) : (h.log || []), doneToday: false };
+  });
+  let price = s.stock.price;
+  if (total > 0) { if (done === total) price *= 1.01; else if (done === 0) price *= 0.97; }
+  price = Math.round(price * 100) / 100;
+  const stock = { ...s.stock, price, history: [...s.stock.history, { date: dateStr, price }].slice(-180) };
+  const state = { ...s, streak, bestStreakEver, dayLog, habits, stock, lastDate: dateStr };
+  const info = { date: dateStr, done, total, streakBroken: done === 0, price };
+  return { state, info };
+}
+function rollForward(s) {
+  let cur = s, info = null, days = 0;
+  const el = Math.min(diffDays(s.lastDate, todayStr()), 60);
+  for (let i = 0; i < el; i++) {
+    const r = closeDay(cur, addDays(s.lastDate, i + 1));
+    cur = r.state; info = r.info; days++;
+  }
+  return { state: cur, info, days };
+}
+function hydrate(saved) {
+  return {
+    streak: saved.streak ?? 0, bestStreakEver: saved.bestStreakEver ?? 0,
+    cash: saved.cash ?? 0,
+    stock: saved.stock ?? { price: BASE_PRICE, history: [], shares: 0 },
+    habits: saved.habits ?? START,
+    theme: saved.theme ?? "violet",
+    itemsOwned: saved.itemsOwned ?? [],
+    equipped: saved.equipped ?? { outfit: null, head: null, aura: null, sidekick: null, car: null, property: null },
+    assets: saved.assets ?? START_ASSETS,
+    dayLog: saved.dayLog ?? [],
+    journal: saved.journal ?? {}, lastDate: saved.lastDate || todayStr(),
+  };
+}
+function assetSeries(asset) {
+  const totalDelta = asset.history.reduce((s, h) => s + h.delta, 0);
+  let running = asset.value - totalDelta;
+  const pts = [{ v: running }];
+  asset.history.forEach((h) => { running += h.delta; pts.push({ v: running }); });
+  return pts;
+}
+
+/* ---------- small shared components ---------- */
+function useTilt(max = 10) {
+  const [t, setT] = useState({ x: 0, y: 0 });
+  const ref = useRef(null);
+  const move = useCallback((e) => {
+    const el = ref.current; if (!el) return;
+    const r = el.getBoundingClientRect();
+    const p = e.touches ? e.touches[0] : e;
+    setT({ x: ((p.clientX - r.left) / r.width - 0.5) * 2, y: ((p.clientY - r.top) / r.height - 0.5) * 2 });
+  }, []);
+  const reset = useCallback(() => setT({ x: 0, y: 0 }), []);
+  return { t, max, ref, handlers: { onPointerMove: move, onPointerLeave: reset, onTouchMove: move, onTouchEnd: reset } };
+}
+function useCount(value) {
+  const [d, setD] = useState(value); const ref = useRef(value);
+  useEffect(() => {
+    const from = ref.current, to = value; if (from === to) return;
+    const start = performance.now(); let raf;
+    const tick = (now) => { const p = Math.min(1, (now - start) / 480); const e = 1 - Math.pow(1 - p, 3);
+      setD(Math.round(from + (to - from) * e)); if (p < 1) raf = requestAnimationFrame(tick); else ref.current = to; };
+    raf = requestAnimationFrame(tick); return () => cancelAnimationFrame(raf);
+  }, [value]);
+  return d;
+}
+function MiniStat({ label, value }) {
+  return (
+    <div className="p-2.5 rounded-2xl text-center" style={{ background: C.surf2, border: `1px solid ${C.line}` }}>
+      <div className="text-[16px] font-bold" style={{ color: C.ink, fontFamily: MONO }}>{value}</div>
+      <div className="text-[9px] uppercase mt-0.5" style={{ color: C.soft, fontFamily: MONO, letterSpacing: "0.03em" }}>{label}</div>
+    </div>
+  );
+}
+function DifficultyTag({ difficulty }) {
+  const label = difficulty === "light" ? "Light" : difficulty === "hard" ? "Hard" : "Standard";
+  const col = difficulty === "light" ? C.good : difficulty === "hard" ? C.ember : C.soft;
+  return <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold uppercase" style={{ background: C.surf2, color: col, border: `1px solid ${C.line}`, fontFamily: MONO }}>{label}</span>;
+}
+function TrendLine({ points, height = 70, color }) {
+  const { accent } = useAccent();
+  const col = color || accent;
+  if (points.length < 2) return <div style={{ height }} className="flex items-center justify-center"><span className="text-[11px]" style={{ color: C.soft, fontFamily: MONO }}>Log a few entries to see your trend</span></div>;
+  const vals = points.map((p) => p.v);
+  const min = Math.min(...vals), max = Math.max(...vals), span = (max - min) || 1;
+  const w = 300, n = points.length, stepX = w / (n - 1);
+  const xy = points.map((p, i) => [i * stepX, height - ((p.v - min) / span) * height * 0.82 - height * 0.09]);
+  const path = xy.map((p, i) => (i === 0 ? "M" : " L") + p[0] + " " + p[1]).join("");
+  const last = xy[xy.length - 1];
+  return (
+    <svg width="100%" height={height} viewBox={`0 0 ${w} ${height}`} preserveAspectRatio="none" style={{ overflow: "visible" }}>
+      <defs><linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={col} stopOpacity="0.3" /><stop offset="1" stopColor={col} stopOpacity="0" /></linearGradient></defs>
+      <path d={`${path} L${last[0]} ${height} L0 ${height} Z`} fill="url(#trendFill)" stroke="none" />
+      <path d={path} fill="none" stroke={col} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx={last[0]} cy={last[1]} r="4" fill={col} />
+    </svg>
+  );
+}
+
+/* ---- the stock: ISWARA CAPITAL (ISWR) ---- */
+function StockChart({ data, up, height = 64 }) {
+  const known = data.filter((d) => d.v != null);
+  const color = up ? C.good : C.ember;
+  if (known.length < 2) return <div style={{ height }} className="flex items-center justify-center"><span className="text-[11px]" style={{ color: C.soft, fontFamily: MONO }}>Price history builds as you go</span></div>;
+  const vals = data.map((d) => d.v);
+  const min = Math.min(...vals), max = Math.max(...vals), span = (max - min) || 1;
+  const w = 300, n = data.length, stepX = w / (n - 1);
+  const xy = data.map((d, i) => [i * stepX, height - ((d.v - min) / span) * height * 0.82 - height * 0.09]);
+  const path = xy.map((p, i) => (i === 0 ? "M" : " L") + p[0] + " " + p[1]).join("");
+  const last = xy[xy.length - 1];
+  return (
+    <svg width="100%" height={height} viewBox={`0 0 ${w} ${height}`} preserveAspectRatio="none" style={{ overflow: "visible" }}>
+      <defs><linearGradient id="stockFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={color} stopOpacity="0.32" /><stop offset="1" stopColor={color} stopOpacity="0" /></linearGradient></defs>
+      <path d={`${path} L${last[0]} ${height} L0 ${height} Z`} fill="url(#stockFill)" stroke="none" />
+      <path d={path} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx={last[0]} cy={last[1]} r="4" fill={color} />
+    </svg>
+  );
+}
+
+/* ---- the character: a stylized, interactive figure you gear up ---- */
+function CharacterFigure({ outfit, headItem, aura, sidekick, tiltX = 0, tiltY = 0, pulse }) {
+  const { accent } = useAccent();
+  const primary = outfit ? outfit.c1 : "#3A3F4E";
+  const secondary = outfit ? outfit.c2 : "#23262F";
+  return (
+    <svg viewBox="0 0 200 280" width="176" height="246" style={{ overflow: "visible", transform: `perspective(700px) rotateY(${tiltX}deg) rotateX(${-tiltY}deg)`, transition: "transform .15s ease-out" }}>
+      <defs>
+        <linearGradient id="skinG" x1="0" x2="1"><stop offset="0" stopColor="#B87F4B" /><stop offset="1" stopColor="#E0A870" /></linearGradient>
+        <linearGradient id="torsoG" x1="0" x2="1"><stop offset="0" stopColor={secondary} /><stop offset="1" stopColor={primary} /></linearGradient>
+        <linearGradient id="legG" x1="0" x2="1"><stop offset="0" stopColor="#181A21" /><stop offset="1" stopColor="#2E313D" /></linearGradient>
+      </defs>
+      <ellipse cx="100" cy="268" rx="46" ry="9" fill="#000" opacity="0.35" />
+      {aura === "halo" && <ellipse cx="100" cy="255" rx="72" ry="13" fill="none" stroke={accent} strokeOpacity="0.45" strokeWidth="2" />}
+      <g className={pulse ? "charPulse" : "breathe"} style={{ transformOrigin: "100px 260px" }}>
+        <rect x="76" y="185" width="18" height="68" rx="9" fill="url(#legG)" />
+        <rect x="106" y="185" width="18" height="68" rx="9" fill="url(#legG)" />
+        <ellipse cx="85" cy="256" rx="12" ry="6" fill="#111214" /><ellipse cx="115" cy="256" rx="12" ry="6" fill="#111214" />
+        <rect x="51" y="116" width="16" height="62" rx="8" fill="url(#torsoG)" transform="rotate(8 59 116)" />
+        <rect x="133" y="116" width="16" height="62" rx="8" fill="url(#torsoG)" transform="rotate(-8 141 116)" />
+        <circle cx="57" cy="182" r="7.5" fill="url(#skinG)" /><circle cx="143" cy="182" r="7.5" fill="url(#skinG)" />
+        <rect x="70" y="98" width="60" height="90" rx="18" fill="url(#torsoG)" />
+        <rect x="70" y="98" width="60" height="90" rx="18" fill="none" stroke={accent} strokeOpacity="0.4" strokeWidth="1.5" />
+        <rect x="92" y="80" width="16" height="20" fill="url(#skinG)" />
+        <circle cx="100" cy="60" r="28" fill="url(#skinG)" />
+        {!headItem && <path d="M73 48 Q100 22 127 48 Q127 36 100 32 Q73 36 73 48 Z" fill="#241A12" />}
+        <circle cx="90" cy="60" r="2.4" fill="#1A1310" /><circle cx="110" cy="60" r="2.4" fill="#1A1310" />
+        <path d="M91 72 Q100 77 109 72" stroke="#1A1310" strokeWidth="2" fill="none" strokeLinecap="round" />
+        {headItem && <text x="100" y="32" fontSize="26" textAnchor="middle">{headItem}</text>}
+      </g>
+      {aura === "flame" && <text x="58" y="272" fontSize="20">🔥</text>}
+      {aura === "flame" && <text x="132" y="272" fontSize="20">🔥</text>}
+      {aura === "stars" && [[36, 90], [166, 130], [30, 190]].map((p, i) => <text key={i} x={p[0]} y={p[1]} fontSize="15" className="twinkle2" style={{ animationDelay: `${i * 0.3}s` }}>✨</text>)}
+      {sidekick && <text x="164" y="220" fontSize="24" className="companionFloat">{sidekick}</text>}
+    </svg>
+  );
+}
+function Wheel({ cx, cy, r }) {
+  return (
+    <g className="wheelSpin" style={{ transformOrigin: `${cx}px ${cy}px` }}>
+      <circle cx={cx} cy={cy} r={r} fill="#111214" />
+      <circle cx={cx} cy={cy} r={r * 0.56} fill="#3A3D46" />
+      {[0, 60, 120, 180, 240, 300].map((a) => (
+        <line key={a} x1={cx} y1={cy} x2={cx} y2={cy - r * 0.5} stroke="#9EA3B0" strokeWidth="2" strokeLinecap="round" transform={`rotate(${a} ${cx} ${cy})`} />
+      ))}
+      <circle cx={cx} cy={cy} r={r * 0.16} fill="#D7DBE6" />
+    </g>
+  );
+}
+const CAR_PALETTES = [
+  { c1: "#7A808F", c2: "#454A56" },
+  { c1: "#4A5A82", c2: "#232D45" },
+  null,
+  { c1: "#1C1D24", c2: "#000000" },
+];
+function carTierOf(id) { return { car_bike: 0, car_sedan: 1, car_sports: 2, car_super: 3 }[id] ?? 1; }
+function CarFigure({ tier, size = 120 }) {
+  const { accent, accent2 } = useAccent();
+  const pal = CAR_PALETTES[tier] || { c1: accent, c2: accent2 };
+  const gid = "carBody" + tier;
+  return (
+    <svg width={size} height={size * 0.56} viewBox="0 0 200 112" style={{ overflow: "visible" }}>
+      <defs><linearGradient id={gid} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={pal.c1} /><stop offset="1" stopColor={pal.c2} /></linearGradient></defs>
+      <ellipse cx="100" cy="102" rx="78" ry="8" fill="#000" opacity="0.4" />
+      {tier === 0 ? (
+        <>
+          <Wheel cx={44} cy={80} r={19} />
+          <Wheel cx={156} cy={80} r={19} />
+          <path d="M44 80 L86 46 L128 50 L156 80" stroke={pal.c1} strokeWidth="7" fill="none" strokeLinecap="round" />
+          <rect x="82" y="34" width="36" height="13" rx="6" fill={pal.c1} />
+          <circle cx="118" cy="48" r="6" fill="#FFE9A8" />
+        </>
+      ) : (
+        <>
+          <Wheel cx={54} cy={88} r={18} />
+          <Wheel cx={148} cy={88} r={18} />
+          <path d={
+            tier === 1
+              ? "M18 88 L18 62 Q18 50 32 50 L58 50 L70 30 L130 30 L142 50 L168 50 Q182 50 182 62 L182 88 Z"
+              : tier === 2
+              ? "M12 88 Q8 66 44 56 L82 34 L128 34 L172 58 Q192 66 188 88 Z"
+              : "M8 88 Q4 60 48 50 L88 22 L124 22 L184 52 Q200 62 192 88 Z"
+          } fill={`url(#${gid})`} />
+          <path d={
+            tier === 1
+              ? "M38 50 L50 34 L112 34 L124 50 Z"
+              : tier === 2
+              ? "M58 56 Q76 38 112 38 L146 56 Z"
+              : "M62 50 Q80 28 118 28 L150 50 Z"
+          } fill="#8FC8E8" opacity="0.55" />
+          <rect x="14" y="70" width="10" height="6" rx="2" fill="#FFE9A8" />
+          <rect x="178" y="70" width="10" height="6" rx="2" fill="#FF5C72" />
+          {tier === 3 && <rect x="56" y="20" width="88" height="5" rx="2" fill={accent} />}
+        </>
+      )}
+    </svg>
+  );
+}
+function CharacterScene({ S, stage, pulse }) {
+  const { accent } = useAccent();
+  const eq = useMemo(() => resolveEquipped(S.equipped), [S.equipped]);
+  const { t, ref, handlers } = useTilt();
+  return (
+    <div ref={ref} {...handlers} className="mx-4 rounded-[28px] relative overflow-hidden" style={{ height: 320, background: "radial-gradient(circle at 50% 20%, #22232F 0%, #0A0A0F 78%)", border: `1px solid ${C.line}`, boxShadow: SHADOW, touchAction: "none" }}>
+      <div className="absolute left-1/2 top-0 -translate-x-1/2 pointer-events-none" style={{ width: 160, height: "82%", background: `linear-gradient(180deg, ${accent}26, transparent 75%)`, clipPath: "polygon(50% 0%, 14% 100%, 86% 100%)" }} />
+      {eq.property && (
+        <div className="absolute inset-x-0 top-6 flex items-center justify-center pointer-events-none" style={{ fontSize: 92, filter: "brightness(0) invert(1) opacity(.13)" }}>{eq.property.emoji}</div>
+      )}
+      {[0, 1, 2, 3, 4, 5].map((i) => (
+        <span key={i} className="absolute rounded-full sceneMote pointer-events-none" style={{ left: `${8 + i * 16}%`, bottom: 14, width: 3, height: 3, background: accent, animationDelay: `${i * 0.9}s`, animationDuration: `${5 + (i % 3)}s` }} />
+      ))}
+      <div className="absolute left-1/2 bottom-7 -translate-x-1/2 rounded-full pointer-events-none" style={{ width: 230, height: 46, border: `1px solid ${C.line}`, background: `radial-gradient(ellipse, ${accent}18, transparent 72%)` }} />
+      <div className="absolute top-3 left-4 px-2 py-1 rounded-md text-[11px] font-bold" style={{ background: "rgba(0,0,0,.45)", color: accent, fontFamily: MONO }}>LVL {stage}</div>
+      {eq.car && (
+        <div key={eq.car.id} className="absolute right-3 bottom-11 carDriveIn" style={{ width: 108 }}>
+          <CarFigure tier={carTierOf(eq.car.id)} size={108} />
+        </div>
+      )}
+      <div className="absolute inset-0 flex items-end justify-center pb-4">
+        <CharacterFigure outfit={eq.outfit} headItem={eq.head && eq.head.emoji} aura={eq.aura && eq.aura.style} sidekick={eq.sidekick && eq.sidekick.emoji} tiltX={t.x * 10} tiltY={t.y * 10} pulse={pulse} />
+      </div>
+      {pulse && (
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute rounded-full revealRing" style={{ width: 40, height: 40, border: `2px solid ${accent}`, left: "calc(50% - 20px)", top: "58%" }} />
+          {[0, 1, 2, 3, 4, 5].map((i) => (
+            <span key={i} className="absolute rounded-full" style={{ width: 5, height: 5, background: accent, left: "calc(50% - 2.5px)", top: "60%", animation: "revealSpark .7s ease-out forwards", animationDelay: `${i * 0.02}s`, ["--ang"]: `${i * 60}deg` }} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Terra() {
+  const raw = useMemo(load, []);
+  const [S, setS] = useState(() => hydrate(raw));
+  const [rolloverInfo, setRolloverInfo] = useState(null);
+  const [tab, setTab] = useState("today");
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [completeTick, setCompleteTick] = useState(0);
+  const stateRef = useRef(S);
+  useEffect(() => { stateRef.current = S; }, [S]);
+
+  useEffect(() => {
+    if (!raw.lastDate) return;
+    const { state, info, days } = rollForward(hydrate(raw));
+    if (days > 0) { setS(state); setRolloverInfo({ ...info, multi: days > 1, days }); }
+  }, []);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      const s = stateRef.current;
+      if (diffDays(s.lastDate, todayStr()) > 0) {
+        const { state, info, days } = rollForward(s);
+        setS(state);
+        if (info) setRolloverInfo({ ...info, multi: days > 1, days });
+      }
+    }, 45000);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => { save(S); }, [S]);
+
+  const done = S.habits.filter((h) => h.doneToday).length;
+  const total = S.habits.length;
+  const energy = total ? done / total : 0;
+  const shownCash = useCount(Math.round(S.cash));
+  const activeTheme = THEMES.find((t) => t.id === S.theme) || THEMES[0];
+  const totalDone = S.habits.reduce((s, h) => s + h.total, 0);
+
+  function complete(id) {
+    setS((s) => {
+      const h = s.habits.find((x) => x.id === id);
+      if (!h || h.doneToday) return s;
+      const gain = reward(h.base, h.streak, h.difficulty);
+      const bump = priceBumpPct(h);
+      const newPrice = Math.round(s.stock.price * (1 + bump) * 100) / 100;
+      return { ...s, cash: s.cash + gain, stock: { ...s.stock, price: newPrice },
+        habits: s.habits.map((x) => x.id === id ? { ...x, doneToday: true, streak: x.streak + 1, total: x.total + 1 } : x) };
+    });
+    setCompleteTick((t) => t + 1);
+  }
+  function removeHabit(id) { setS((s) => ({ ...s, habits: s.habits.filter((h) => h.id !== id) })); }
+  function addHabit(name, emoji) {
+    if (!name.trim()) return;
+    setS((s) => ({ ...s, habits: [...s.habits, { id: Date.now(), name: name.trim(), emoji, base: 15, difficulty: "standard", streak: 0, best: 0, total: 0, doneToday: false, log: [] }] }));
+  }
+  function updateHabit(id, patch) { setS((s) => ({ ...s, habits: s.habits.map((h) => h.id === id ? { ...h, ...patch } : h) })); }
+  function moveHabit(id, dir) {
+    setS((s) => {
+      const i = s.habits.findIndex((h) => h.id === id); const j = i + dir;
+      if (i < 0 || j < 0 || j >= s.habits.length) return s;
+      const next = [...s.habits]; [next[i], next[j]] = [next[j], next[i]];
+      return { ...s, habits: next };
+    });
+  }
+  function setJournalNote(text) { setS((s) => ({ ...s, journal: { ...s.journal, [s.lastDate]: text } })); }
+  function selectTheme(id) { setS((s) => ({ ...s, theme: id })); }
+  function buyShares(cashAmt) {
+    setS((s) => { const amt = Math.min(cashAmt, s.cash); if (amt <= 0) return s;
+      return { ...s, cash: s.cash - amt, stock: { ...s.stock, shares: s.stock.shares + amt / s.stock.price } }; });
+  }
+  function sellShares(shareAmt) {
+    setS((s) => { const amt = Math.min(shareAmt, s.stock.shares); if (amt <= 0) return s;
+      return { ...s, cash: s.cash + amt * s.stock.price, stock: { ...s.stock, shares: s.stock.shares - amt } }; });
+  }
+  function buyItem(item) {
+    setS((s) => { if (s.cash < item.price || s.itemsOwned.includes(item.id)) return s;
+      return { ...s, cash: s.cash - item.price, itemsOwned: [...s.itemsOwned, item.id], equipped: { ...s.equipped, [item.slot]: item.id } }; });
+  }
+  function equipItem(slot, id) {
+    setS((s) => (id === null || s.itemsOwned.includes(id)) ? { ...s, equipped: { ...s.equipped, [slot]: id } } : s);
+  }
+  function addAsset(name, emoji, prefix) {
+    if (!name.trim()) return;
+    setS((s) => ({ ...s, assets: [...s.assets, { id: Date.now(), name: name.trim(), emoji, prefix, value: 0, history: [] }] }));
+  }
+  function removeAsset(id) { setS((s) => ({ ...s, assets: s.assets.filter((a) => a.id !== id) })); }
+  function logEntry(assetId, delta, note) {
+    setS((s) => {
+      const factor = delta > 0 ? ASSET_BUMP : delta < 0 ? ASSET_DROP : 1;
+      const movedPrice = delta !== 0 ? Math.round(s.stock.price * factor * 100) / 100 : s.stock.price;
+      return {
+        ...s,
+        stock: delta !== 0 ? { ...s.stock, price: movedPrice } : s.stock,
+        assets: s.assets.map((a) => a.id === assetId ? { ...a, value: a.value + delta, history: [...a.history, { id: Date.now(), date: todayStr(), delta, note }].slice(-200) } : a),
+      };
+    });
+  }
+
+  const TABS = [["today", "Today", Zap], ["assets", "Assets", TrendingUp], ["market", "Market", ShoppingBag], ["character", "Character", User], ["stats", "Portfolio", BarChart3]];
+  const tabIndex = TABS.findIndex((x) => x[0] === tab);
+
+  return (
+    <ThemeCtx.Provider value={{ accent: activeTheme.accent, accent2: activeTheme.accent2 }}>
+      <div className="app-root" style={{ fontFamily: SYS }}>
+        <Style />
+        <header className="flex items-center justify-between px-6 pb-2"
+          style={{ paddingTop: "calc(env(safe-area-inset-top) + 10px)", background: "rgba(10,10,15,0.86)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", borderBottom: `1px solid ${C.line}` }}>
+          <div style={lbl}>{TABS[tabIndex][1]}</div>
+          <div className="flex items-center gap-2">
+            <Chip>{"$" + shownCash.toLocaleString()}</Chip>
+            <Chip>{S.streak > 0 ? "🔥" : "·"} {S.streak}</Chip>
+            <button onClick={() => setSettingsOpen(true)} className="p-1.5 rounded-full active:scale-90 transition-transform" style={{ border: `1px solid ${C.line}`, background: C.surf }} aria-label="Settings"><Settings size={16} color={C.soft} /></button>
+          </div>
+        </header>
+
+        <main key={tab} className="fadeup content">
+          {tab === "today" && <Today S={S} done={done} total={total} energy={energy}
+            rolloverInfo={rolloverInfo} onDismissRollover={() => setRolloverInfo(null)}
+            onComplete={complete} onRemove={removeHabit} onAdd={addHabit} onUpdateHabit={updateHabit} onMoveHabit={moveHabit}
+            journalNote={S.journal[S.lastDate] || ""} onJournal={setJournalNote} />}
+          {tab === "assets" && <Assets S={S} onAddAsset={addAsset} onRemoveAsset={removeAsset} onLog={logEntry} />}
+          {tab === "market" && <Market S={S} onBuyShares={buyShares} onSellShares={sellShares} />}
+          {tab === "character" && <Character S={S} totalDone={totalDone} onBuyItem={buyItem} onEquipItem={equipItem} />}
+          {tab === "stats" && <Stats S={S} energy={energy} totalDone={totalDone} />}
+        </main>
+
+        <nav className="pt-2 px-2" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 8px)", background: "rgba(10,10,15,0.92)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", borderTop: `1px solid ${C.line}` }}>
+          <div className="relative flex">
+            <div className="absolute top-0 h-full transition-all duration-300" style={{ left: `${tabIndex * 20}%`, width: "20%", padding: "0 6px" }}>
+              <div className="w-full h-full rounded-2xl" style={{ background: C.surf2, border: `1px solid ${C.line}` }} />
+            </div>
+            {TABS.map(([key, label, Icon]) => {
+              const on = tab === key;
+              return (
+                <button key={key} onClick={() => setTab(key)} className="relative flex-1 flex flex-col items-center gap-0.5 py-2 active:scale-90 transition-transform">
+                  <Icon size={19} color={on ? activeTheme.accent : C.soft} strokeWidth={on ? 2.6 : 2} />
+                  <span className="text-[9px] font-bold" style={{ color: on ? activeTheme.accent : C.soft, fontFamily: MONO, letterSpacing: "0.02em" }}>{label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+
+        {settingsOpen && <SettingsSheet theme={S.theme} onSelect={selectTheme} onClose={() => setSettingsOpen(false)} />}
+      </div>
+    </ThemeCtx.Provider>
+  );
+}
+
+function Chip({ children }) {
+  return <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[13px] font-bold" style={{ border: `1px solid ${C.line}`, background: C.surf, color: C.ink, fontFamily: MONO }}>{children}</span>;
+}
+function SettingsSheet({ theme, onSelect, onClose }) {
+  return (
+    <div className="absolute inset-0 z-30 flex items-end justify-center" style={{ background: "rgba(0,0,0,.6)" }} onClick={onClose}>
+      <div className="w-full rounded-t-[32px] p-5" style={{ background: C.surf, border: `1px solid ${C.line}`, borderBottom: "none" }} onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <div className="text-[18px] font-extrabold" style={{ fontFamily: DISPLAY, color: C.ink }}>Settings</div>
+          <button onClick={onClose} style={{ color: C.soft }}><X size={18} /></button>
+        </div>
+        <div style={lbl} className="mb-3">Accent theme</div>
+        <div className="grid grid-cols-5 gap-2">
+          {THEMES.map((t) => (
+            <button key={t.id} onClick={() => onSelect(t.id)} className="flex flex-col items-center gap-1.5">
+              <div className="rounded-full" style={{ width: 38, height: 38, background: `linear-gradient(135deg, ${t.accent}, ${t.accent2})`, boxShadow: theme === t.id ? `0 0 0 3px ${C.surf}, 0 0 0 5px ${t.accent}` : "none" }} />
+              <span className="text-[9px]" style={{ color: theme === t.id ? t.accent : C.soft, fontFamily: MONO }}>{t.name}</span>
+            </button>
+          ))}
+        </div>
+        <div style={{ height: "env(safe-area-inset-bottom)", paddingTop: 16 }} />
+      </div>
+    </div>
+  );
+}
+
+/* ================================================================== */
+/*  TODAY                                                             */
+/* ================================================================== */
+function Today({ S, done, total, energy, rolloverInfo, onDismissRollover, onComplete, onRemove, onAdd, onUpdateHabit, onMoveHabit, journalNote, onJournal }) {
+  const { accent } = useAccent();
+  const [adding, setAdding] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [editingHabit, setEditingHabit] = useState(null);
+  const [detailHabit, setDetailHabit] = useState(null);
+  const hour = new Date().getHours();
+  const greeting = hour < 5 ? "Late night" : hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  const price = S.stock.price;
+  const openPrice = S.stock.history.length ? S.stock.history[S.stock.history.length - 1].price : BASE_PRICE;
+  const up = price >= openPrice;
+  const changePct = openPrice ? ((price - openPrice) / openPrice) * 100 : 0;
+
+  return (
+    <div className="pb-8">
+      <div className="px-4 pt-2">
+        {rolloverInfo && <RolloverToast info={rolloverInfo} onDismiss={onDismissRollover} />}
+      </div>
+      <div className="px-6 pt-1 pb-3">
+        <div className="text-[14px] font-medium" style={{ color: C.soft }}>{greeting}</div>
+        <div className="text-[25px] font-extrabold" style={{ color: C.ink, fontFamily: DISPLAY, letterSpacing: "-0.02em" }}>
+          {done === total && total > 0 ? "All logged today" : `${total - done} habit${total - done === 1 ? "" : "s"} left`}
+        </div>
+        <div className="flex items-center gap-2 mt-1">
+          <span className="text-[11px]" style={{ color: C.soft, fontFamily: MONO }}>{prettyDate(S.lastDate)}</span>
+          <span className="text-[11px]" style={{ color: C.soft, fontFamily: MONO }}>·</span>
+          <span className="text-[11px] font-bold" style={{ color: up ? C.good : C.ember, fontFamily: MONO }}>ISWR {"$" + price.toFixed(2)} {up ? "▲" : "▼"}{Math.abs(changePct).toFixed(1)}%</span>
+        </div>
+      </div>
+
+      <div className="px-4">
+        <div className="flex items-center justify-between mb-2.5 px-1">
+          <div style={lbl}>Habits</div>
+          <div className="flex items-center gap-3">
+            <button onClick={() => setEditMode((m) => !m)} className="text-[13px] font-bold uppercase active:scale-95 transition-transform" style={{ color: editMode ? C.gold : C.soft, fontFamily: MONO, letterSpacing: "0.04em" }}>{editMode ? "Done" : "Edit"}</button>
+            <button onClick={() => setAdding(true)} className="flex items-center gap-1 text-[13px] font-bold uppercase active:scale-95 transition-transform" style={{ color: accent, fontFamily: MONO, letterSpacing: "0.04em" }}><Plus size={15} /> Add</button>
+          </div>
+        </div>
+        {adding && <AddRow onAdd={(n, e) => { onAdd(n, e); setAdding(false); }} onCancel={() => setAdding(false)} />}
+        <div className="flex flex-col gap-2">
+          {S.habits.map((h, i) => <HabitRow key={h.id} h={h} idx={i} count={S.habits.length} editing={editMode}
+            onComplete={onComplete} onRemove={onRemove} onMove={onMoveHabit}
+            onOpenDetail={() => setDetailHabit(h)} onOpenEdit={() => setEditingHabit(h)} />)}
+        </div>
+      </div>
+
+      <div className="px-4 mt-6">
+        <div style={lbl} className="mb-2 px-1">Log</div>
+        <textarea value={journalNote} onChange={(e) => onJournal(e.target.value)} placeholder="Anything worth noting today…" rows={2}
+          className="w-full px-3.5 py-3 rounded-2xl text-[13px] outline-none resize-none" style={{ background: C.surf, color: C.ink, border: `1px solid ${C.line}` }} />
+      </div>
+
+      {detailHabit && <HabitDetail habit={S.habits.find((h) => h.id === detailHabit.id) || detailHabit} onClose={() => setDetailHabit(null)} />}
+      {editingHabit && <EditHabitSheet habit={editingHabit} onCancel={() => setEditingHabit(null)} onSave={(patch) => { onUpdateHabit(editingHabit.id, patch); setEditingHabit(null); }} />}
+    </div>
+  );
+}
+
+function RolloverToast({ info, onDismiss }) {
+  useEffect(() => { const id = setTimeout(onDismiss, 6000); return () => clearTimeout(id); }, []);
+  const priceLine = ` ISWR closed $${info.price.toFixed(2)}.`;
+  const msg = (info.multi
+    ? `Welcome back — ${info.days} day${info.days === 1 ? "" : "s"} passed while you were away.`
+    : info.streakBroken ? "Streak reset — yesterday went untended."
+    : `Yesterday: ${info.done}/${info.total} tended.`) + priceLine;
+  return (
+    <div onClick={onDismiss} className="mb-2 px-4 py-3 rounded-2xl flex items-center gap-2.5 active:scale-[0.98] transition-transform" style={{ background: C.surf2, border: `1px solid ${C.line}` }}>
+      <span className="text-[16px]">{info.streakBroken ? "💤" : "🔔"}</span>
+      <span className="text-[12.5px] flex-1" style={{ color: C.ink }}>{msg}</span>
+    </div>
+  );
+}
+
+function HabitRow({ h, idx, count, editing, onComplete, onRemove, onMove, onOpenDetail, onOpenEdit }) {
+  const { accent } = useAccent();
+  const [burst, setBurst] = useState(false);
+  const gain = reward(h.base, h.streak, h.difficulty), mult = multiplier(h.streak);
+  const bumpPct = (priceBumpPct(h) * 100).toFixed(1);
+  function tap() { if (h.doneToday) return; setBurst(true); setTimeout(() => setBurst(false), 850); onComplete(h.id); }
+  return (
+    <div className="relative flex items-center gap-3 p-3 rounded-[22px] transition-all"
+         style={{ background: h.doneToday ? "rgba(46,213,115,0.08)" : C.surf, border: `1px solid ${h.doneToday ? "rgba(46,213,115,0.35)" : C.line}`, boxShadow: h.doneToday ? "none" : SHADOW }}>
+      <div onClick={() => !editing && onOpenDetail()} className="flex items-center justify-center rounded-2xl text-xl" style={{ width: 46, height: 46, background: h.doneToday ? "rgba(46,213,115,0.14)" : C.surf2 }}>{h.emoji}</div>
+      <div className="flex-1 min-w-0" onClick={() => !editing && onOpenDetail()}>
+        <div className="font-semibold truncate text-[15px]" style={{ color: C.ink }}>{h.name}</div>
+        <div className="flex items-center gap-2 text-[12px] mt-0.5 flex-wrap">
+          <span className="font-bold" style={{ color: h.streak > 0 ? "#FF9E4A" : "#5C5F6E", fontFamily: MONO }}>{h.streak > 0 ? "🔥" : "·"} {h.streak}d</span>
+          <span className="flex items-center gap-0.5 font-semibold" style={{ color: C.soft, fontFamily: MONO }}>{"+$" + gain}</span>
+          <span className="font-semibold" style={{ color: C.good, fontFamily: MONO }}>{"▲" + bumpPct + "%"}</span>
+        </div>
+      </div>
+      {editing ? (
+        <div className="flex items-center gap-0.5">
+          <button onClick={() => onMove(h.id, -1)} disabled={idx === 0} className="px-1.5 py-1 text-[13px] font-bold" style={{ color: idx === 0 ? "#33333F" : C.soft }}>▲</button>
+          <button onClick={() => onMove(h.id, 1)} disabled={idx === count - 1} className="px-1.5 py-1 text-[13px] font-bold" style={{ color: idx === count - 1 ? "#33333F" : C.soft }}>▼</button>
+          <button onClick={onOpenEdit} className="px-1.5 py-1 text-[14px]" style={{ color: accent }}>✎</button>
+          <button onClick={() => onRemove(h.id)} className="p-1.5" style={{ color: C.ember }}><Trash2 size={14} /></button>
+        </div>
+      ) : (
+        <>
+          <button onClick={() => onRemove(h.id)} className="p-1.5" style={{ color: "#44444F" }} aria-label="Remove"><Trash2 size={14} /></button>
+          <button onClick={tap} disabled={h.doneToday} className="relative flex items-center justify-center rounded-2xl active:scale-90 transition-transform"
+            style={{ width: 46, height: 46, background: h.doneToday ? C.good : accent, color: C.app }} aria-label="Complete">
+            <Check size={21} strokeWidth={3} className={burst ? "checkpop" : ""} />
+          </button>
+        </>
+      )}
+      {burst && <>
+        <div className="absolute font-extrabold text-[16px] pointer-events-none" style={{ right: 62, top: -2, color: accent, animation: "flyup .85s ease-out forwards" }}>{"+$" + gain}</div>
+        {[0, 1, 2, 3].map((k) => <span key={k} className="absolute pointer-events-none spark" style={{ right: 68, top: 20, background: [accent, C.good, C.gold, C.ember][k], animationDelay: `${k * 60}ms`, ["--dx"]: `${(k - 1.5) * 14}px` }} />)}
+      </>}
+    </div>
+  );
+}
+function AddRow({ onAdd, onCancel }) {
+  const { accent } = useAccent();
+  const [name, setName] = useState(""); const [emoji, setEmoji] = useState("✨");
+  return (
+    <div className="p-3 rounded-[22px] mb-2" style={{ background: C.surf, border: `1px solid ${C.line}`, boxShadow: SHADOW }}>
+      <div className="flex gap-1.5 mb-2 flex-wrap">{EMOJIS.map((e) => <button key={e} onClick={() => setEmoji(e)} className="text-lg rounded-xl active:scale-90 transition-transform" style={{ width: 32, height: 32, background: emoji === e ? C.surf2 : "transparent", border: emoji === e ? `1px solid ${accent}` : "1px solid transparent" }}>{e}</button>)}</div>
+      <div className="flex gap-2">
+        <input autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && onAdd(name, emoji)} placeholder="New habit…" className="flex-1 px-3 py-2 rounded-xl text-[14px] outline-none" style={{ background: C.surf2, color: C.ink, border: `1px solid ${C.line}` }} />
+        <button onClick={() => onAdd(name, emoji)} className="px-3 rounded-xl font-semibold text-[13px] uppercase" style={{ background: accent, color: C.app, fontFamily: MONO }}>Save</button>
+        <button onClick={onCancel} className="px-2 rounded-xl" style={{ color: "#5C5F6E" }}><X size={18} /></button>
+      </div>
+    </div>
+  );
+}
+function EditHabitSheet({ habit, onSave, onCancel }) {
+  const { accent } = useAccent();
+  const [name, setName] = useState(habit.name);
+  const [emoji, setEmoji] = useState(habit.emoji);
+  const [difficulty, setDifficulty] = useState(habit.difficulty || "standard");
+  return (
+    <div className="absolute inset-0 z-30 flex items-end justify-center" style={{ background: "rgba(0,0,0,.6)" }} onClick={onCancel}>
+      <div className="w-full rounded-t-[32px] p-5" style={{ background: C.surf, border: `1px solid ${C.line}`, borderBottom: "none" }} onClick={(e) => e.stopPropagation()}>
+        <div style={lbl} className="mb-3">Edit habit</div>
+        <div className="flex gap-1.5 mb-3 flex-wrap">{EMOJIS.map((e) => <button key={e} onClick={() => setEmoji(e)} className="text-lg rounded-xl active:scale-90 transition-transform" style={{ width: 32, height: 32, background: emoji === e ? C.surf2 : "transparent", border: emoji === e ? `1px solid ${accent}` : "1px solid transparent" }}>{e}</button>)}</div>
+        <input value={name} onChange={(e) => setName(e.target.value)} className="w-full px-3.5 py-2.5 rounded-xl text-[14px] outline-none mb-3" style={{ background: C.surf2, color: C.ink, border: `1px solid ${C.line}` }} />
+        <div style={lbl} className="mb-2">Difficulty</div>
+        <div className="flex gap-2 mb-4">
+          {["light", "standard", "hard"].map((d) => (
+            <button key={d} onClick={() => setDifficulty(d)} className="flex-1 py-2 rounded-xl text-[12px] font-bold uppercase" style={{ background: difficulty === d ? accent : C.surf2, color: difficulty === d ? C.app : C.soft, border: `1px solid ${C.line}`, fontFamily: MONO }}>{d}</button>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <button onClick={onCancel} className="flex-1 py-3 rounded-xl font-bold text-[13px] uppercase" style={{ background: C.surf2, color: C.soft, border: `1px solid ${C.line}`, fontFamily: MONO }}>Cancel</button>
+          <button onClick={() => name.trim() && onSave({ name: name.trim(), emoji, difficulty })} className="flex-1 py-3 rounded-xl font-bold text-[13px] uppercase" style={{ background: accent, color: C.app, fontFamily: MONO }}>Save</button>
+        </div>
+        <div style={{ height: "env(safe-area-inset-bottom)" }} />
+      </div>
+    </div>
+  );
+}
+function HabitDetail({ habit, onClose }) {
+  const dates = useMemo(() => lastNDates(35), []);
+  const set = useMemo(() => { const s = new Set(habit.log || []); if (habit.doneToday) s.add(todayStr()); return s; }, [habit.log, habit.doneToday]);
+  const { accent } = useAccent();
+  return (
+    <div className="absolute inset-0 z-30 flex items-end justify-center" style={{ background: "rgba(0,0,0,.6)" }} onClick={onClose}>
+      <div className="w-full rounded-t-[32px] p-5" style={{ background: C.surf, border: `1px solid ${C.line}`, borderBottom: "none", maxHeight: "80vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-3 mb-4">
+          <div className="flex items-center justify-center rounded-2xl text-2xl" style={{ width: 52, height: 52, background: C.surf2 }}>{habit.emoji}</div>
+          <div className="flex-1">
+            <div className="text-[17px] font-semibold" style={{ color: C.ink }}>{habit.name}</div>
+            <DifficultyTag difficulty={habit.difficulty || "standard"} />
+          </div>
+          <button onClick={onClose} style={{ color: C.soft }}><X size={18} /></button>
+        </div>
+        <div className="grid grid-cols-3 gap-2 mb-4">
+          <MiniStat label="Streak" value={`${habit.streak}d`} />
+          <MiniStat label="Best" value={`${habit.best || 0}d`} />
+          <MiniStat label="Total" value={habit.total} />
+        </div>
+        <div style={lbl} className="mb-2">Last 35 days</div>
+        <div className="grid gap-1" style={{ gridTemplateColumns: "repeat(7,1fr)" }}>
+          {dates.map((d) => <div key={d} style={{ aspectRatio: "1", borderRadius: 6, background: set.has(d) ? accent : C.surf2 }} />)}
+        </div>
+        <div style={{ height: "env(safe-area-inset-bottom)", paddingTop: 12 }} />
+      </div>
+    </div>
+  );
+}
+
+/* ================================================================== */
+/*  ASSETS — track anything that compounds; positive entries also     */
+/*  nudge ISWR, the same way tending a habit does.                    */
+/* ================================================================== */
+function AssetCard({ asset, onOpen }) {
+  const series = useMemo(() => assetSeries(asset), [asset.history, asset.value]);
+  const trendUp = series.length > 1 ? series[series.length - 1].v >= series[0].v : true;
+  return (
+    <button onClick={onOpen} className="p-4 rounded-[22px] flex items-center gap-3 text-left w-full active:scale-[0.98] transition-transform" style={{ background: C.surf, border: `1px solid ${C.line}`, boxShadow: SHADOW }}>
+      <div className="flex items-center justify-center rounded-2xl text-2xl" style={{ width: 48, height: 48, background: C.surf2 }}>{asset.emoji}</div>
+      <div className="flex-1 min-w-0">
+        <div className="font-semibold text-[15px]" style={{ color: C.ink }}>{asset.name}</div>
+        <div className="text-[11px]" style={{ color: C.soft, fontFamily: MONO }}>{asset.history.length} {asset.history.length === 1 ? "entry" : "entries"}</div>
+      </div>
+      <div className="text-right">
+        <div className="font-bold text-[17px]" style={{ color: C.ink, fontFamily: MONO }}>{asset.prefix}{asset.value.toLocaleString()}</div>
+        <div className="text-[11px] font-bold" style={{ color: trendUp ? C.good : C.ember, fontFamily: MONO }}>{trendUp ? "▲" : "▼"}</div>
+      </div>
+    </button>
+  );
+}
+function AddAssetRow({ onAdd, onCancel }) {
+  const { accent } = useAccent();
+  const [name, setName] = useState(""); const [emoji, setEmoji] = useState("💰"); const [prefix, setPrefix] = useState("$");
+  return (
+    <div className="p-3 rounded-[22px] mb-3" style={{ background: C.surf, border: `1px solid ${C.line}`, boxShadow: SHADOW }}>
+      <div className="flex gap-1.5 mb-2 flex-wrap">{ASSET_ICONS.map((e) => <button key={e} onClick={() => setEmoji(e)} className="text-lg rounded-xl active:scale-90 transition-transform" style={{ width: 32, height: 32, background: emoji === e ? C.surf2 : "transparent", border: emoji === e ? `1px solid ${accent}` : "1px solid transparent" }}>{e}</button>)}</div>
+      <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Name it (e.g. Savings, Debt, Weight)" className="w-full px-3 py-2 rounded-xl text-[14px] outline-none mb-2" style={{ background: C.surf2, color: C.ink, border: `1px solid ${C.line}` }} />
+      <div className="flex gap-2 mb-2">
+        {["$", "#"].map((p) => (
+          <button key={p} onClick={() => setPrefix(p)} className="flex-1 py-2 rounded-xl text-[12px] font-bold uppercase" style={{ background: prefix === p ? accent : C.surf2, color: prefix === p ? C.app : C.soft, border: `1px solid ${C.line}`, fontFamily: MONO }}>{p === "$" ? "$ Dollars" : "# Plain number"}</button>
+        ))}
+      </div>
+      <div className="flex gap-2">
+        <button onClick={() => { onAdd(name, emoji, prefix); }} className="flex-1 py-2.5 rounded-xl font-semibold text-[13px] uppercase" style={{ background: accent, color: C.app, fontFamily: MONO }}>Create</button>
+        <button onClick={onCancel} className="px-3 rounded-xl" style={{ color: "#5C5F6E" }}><X size={18} /></button>
+      </div>
+    </div>
+  );
+}
+function AssetDetail({ asset, onClose, onLog, onDelete }) {
+  const { accent } = useAccent();
+  const [amt, setAmt] = useState("");
+  const [note, setNote] = useState("");
+  const [sign, setSign] = useState(1);
+  const [flash, setFlash] = useState(null);
+  const [flyNum, setFlyNum] = useState(null);
+  const shown = useCount(asset.value);
+  const series = useMemo(() => assetSeries(asset), [asset.history, asset.value]);
+  function submit() {
+    const n = Math.abs(Number(amt));
+    if (!n) return;
+    const delta = sign * n;
+    onLog(asset.id, delta, note.trim());
+    setFlash(sign > 0 ? "up" : "down");
+    setFlyNum({ v: delta, key: Date.now() });
+    setTimeout(() => setFlash(null), 900);
+    setTimeout(() => setFlyNum(null), 900);
+    setAmt(""); setNote("");
+  }
+  return (
+    <div className="absolute inset-0 z-30 flex items-end justify-center" style={{ background: "rgba(0,0,0,.6)" }} onClick={onClose}>
+      <div className="w-full rounded-t-[32px] p-5" style={{ background: C.surf, border: `1px solid ${C.line}`, borderBottom: "none", maxHeight: "85vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-3 mb-4">
+          <div className="flex items-center justify-center rounded-2xl text-2xl" style={{ width: 52, height: 52, background: C.surf2 }}>{asset.emoji}</div>
+          <div className="flex-1 text-[17px] font-semibold" style={{ color: C.ink }}>{asset.name}</div>
+          <button onClick={() => onDelete(asset.id)} className="p-1.5" style={{ color: C.ember }}><Trash2 size={16} /></button>
+          <button onClick={onClose} style={{ color: C.soft }}><X size={18} /></button>
+        </div>
+
+        <div className="relative rounded-[24px] p-5 mb-4 text-center overflow-hidden" style={{ background: C.surf2, border: `1px solid ${flash === "up" ? C.good : flash === "down" ? C.ember : C.line}`, transition: "border-color .3s" }}>
+          <div className="text-4xl font-black" style={{ color: C.ink, fontFamily: DISPLAY }}>{asset.prefix}{shown.toLocaleString()}</div>
+          {flyNum && <div key={flyNum.key} className="absolute left-1/2 font-extrabold text-[15px] pointer-events-none" style={{ top: 8, transform: "translateX(-50%)", color: flyNum.v > 0 ? C.good : C.ember, animation: "flyup .9s ease-out forwards" }}>{(flyNum.v > 0 ? "+" : "-") + asset.prefix + Math.abs(flyNum.v).toLocaleString()}</div>}
+        </div>
+
+        <div className="mb-4"><TrendLine points={series} /></div>
+
+        <div className="flex gap-2 mb-2">
+          <button onClick={() => setSign(1)} className="w-11 rounded-xl font-bold text-[18px]" style={{ background: sign === 1 ? C.good : C.surf2, color: sign === 1 ? C.app : C.soft }}>+</button>
+          <button onClick={() => setSign(-1)} className="w-11 rounded-xl font-bold text-[18px]" style={{ background: sign === -1 ? C.ember : C.surf2, color: sign === -1 ? C.app : C.soft }}>−</button>
+          <input type="number" value={amt} onChange={(e) => setAmt(e.target.value)} placeholder="Amount" className="flex-1 px-3.5 py-2.5 rounded-xl text-[14px] outline-none" style={{ background: C.surf2, color: C.ink, border: `1px solid ${C.line}` }} />
+        </div>
+        <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note (optional)" className="w-full px-3.5 py-2.5 rounded-xl text-[13px] outline-none mb-2" style={{ background: C.surf2, color: C.ink, border: `1px solid ${C.line}` }} />
+        <button onClick={submit} className="w-full py-3 rounded-xl font-bold text-[13px] uppercase" style={{ background: accent, color: C.app, fontFamily: MONO }}>Log entry</button>
+        <div className="text-[10px] text-center mt-2" style={{ color: C.soft, fontFamily: MONO }}>Gains lift ISWR, losses dip it — just like a day tended</div>
+
+        {asset.history.length > 0 && <>
+          <div style={lbl} className="mt-5 mb-2">History</div>
+          <div className="flex flex-col gap-1.5">
+            {[...asset.history].reverse().slice(0, 20).map((h) => (
+              <div key={h.id} className="flex items-center justify-between px-3.5 py-2.5 rounded-xl" style={{ background: C.surf2, border: `1px solid ${C.line}` }}>
+                <div className="min-w-0">
+                  <div className="text-[10px] uppercase" style={{ color: C.soft, fontFamily: MONO }}>{h.date}</div>
+                  {h.note && <div className="text-[12px] truncate" style={{ color: C.ink }}>{h.note}</div>}
+                </div>
+                <div className="font-bold text-[13px]" style={{ color: h.delta > 0 ? C.good : C.ember, fontFamily: MONO }}>{(h.delta > 0 ? "+" : "-") + asset.prefix + Math.abs(h.delta).toLocaleString()}</div>
+              </div>
+            ))}
+          </div>
+        </>}
+        <div style={{ height: "env(safe-area-inset-bottom)", paddingTop: 12 }} />
+      </div>
+    </div>
+  );
+}
+function Assets({ S, onAddAsset, onRemoveAsset, onLog }) {
+  const { accent } = useAccent();
+  const [adding, setAdding] = useState(false);
+  const [openAsset, setOpenAsset] = useState(null);
+  const live = openAsset ? S.assets.find((a) => a.id === openAsset.id) : null;
+  return (
+    <div className="px-4 pb-6 pt-2">
+      <div className="px-2 mb-4">
+        <div className="text-[25px] font-extrabold" style={{ color: C.ink, fontFamily: DISPLAY, letterSpacing: "-0.02em" }}>Assets</div>
+        <div className="text-[13px] mt-0.5" style={{ color: C.soft }}>Track anything that compounds — every gain feeds ISWR too.</div>
+      </div>
+      {adding && <AddAssetRow onAdd={(n, e, p) => { onAddAsset(n, e, p); setAdding(false); }} onCancel={() => setAdding(false)} />}
+      <div className="flex flex-col gap-2 mb-3">
+        {S.assets.map((a) => <AssetCard key={a.id} asset={a} onOpen={() => setOpenAsset(a)} />)}
+      </div>
+      <button onClick={() => setAdding(true)} className="w-full py-3 rounded-2xl flex items-center justify-center gap-1.5 font-bold text-[13px] uppercase" style={{ background: C.surf, border: `1px solid ${C.line}`, color: accent, fontFamily: MONO }}><Plus size={15} /> New tracker</button>
+      {live && <AssetDetail asset={live} onClose={() => setOpenAsset(null)} onLog={onLog} onDelete={(id) => { onRemoveAsset(id); setOpenAsset(null); }} />}
+    </div>
+  );
+}
+
+/* ================================================================== */
+/*  MARKET — ISWR history chart + buy/sell, nothing else               */
+/* ================================================================== */
+function Market({ S, onBuyShares, onSellShares }) {
+  const { accent } = useAccent();
+  const [amt, setAmt] = useState(""); const [mode, setMode] = useState("buy");
+  const price = S.stock.price, shares = S.stock.shares;
+  const openPrice = S.stock.history.length ? S.stock.history[S.stock.history.length - 1].price : BASE_PRICE;
+  const change = price - openPrice;
+  const changePct = openPrice ? (change / openPrice) * 100 : 0;
+  const up = change >= 0;
+  const chartData = useMemo(() => {
+    const hist = S.stock.history.slice(-29).map((h) => ({ v: h.price }));
+    return [...hist, { v: price }];
+  }, [S.stock.history, price]);
+  const athPrice = Math.max(BASE_PRICE, price, ...S.stock.history.map((h) => h.price));
+  const totalChangePct = ((price / BASE_PRICE) - 1) * 100;
+  const portfolioValue = shares * price;
+  return (
+    <div className="px-4 pb-6 pt-2">
+      <div className="px-2 mb-3"><div className="text-[25px] font-extrabold" style={{ color: C.ink, fontFamily: DISPLAY, letterSpacing: "-0.02em" }}>Market</div></div>
+
+      <div className="rounded-[28px] p-5 relative overflow-hidden mb-4" style={{ background: C.surf, border: `1px solid ${C.line}`, boxShadow: SHADOW }}>
+        <div className="absolute -top-24 -right-16 rounded-full pointer-events-none" style={{ width: 220, height: 220, background: up ? C.good : C.ember, opacity: 0.14, filter: "blur(54px)" }} />
+        <div className="relative">
+          <div className="flex items-center gap-2">
+            <span className="px-2 py-0.5 rounded-md text-[11px] font-bold" style={{ background: C.surf2, color: up ? C.good : C.ember, fontFamily: MONO }}>ISWR</span>
+            <span className="text-[12px]" style={{ color: C.soft }}>Iswara Capital</span>
+          </div>
+          <div className="text-[32px] font-black mt-1" style={{ fontFamily: DISPLAY, color: C.ink, letterSpacing: "-0.02em" }}>{"$" + price.toFixed(2)}</div>
+          <div className="flex items-center gap-1 text-[13px] font-bold" style={{ color: up ? C.good : C.ember, fontFamily: MONO }}>
+            <span>{up ? "▲" : "▼"}</span>
+            <span>{(up ? "+" : "") + change.toFixed(2) + " (" + (up ? "+" : "") + changePct.toFixed(1) + "%)"}</span>
+            <span className="ml-1" style={{ color: C.soft, fontWeight: 500 }}>today</span>
+          </div>
+        </div>
+        <div className="relative mt-4"><StockChart data={chartData} up={up} height={130} /></div>
+        <div className="relative grid grid-cols-3 gap-2 mt-4 pt-3" style={{ borderTop: `1px solid ${C.line}` }}>
+          <MiniStat label="All-time high" value={`$${athPrice.toFixed(2)}`} />
+          <MiniStat label="Since IPO" value={`${totalChangePct >= 0 ? "+" : ""}${totalChangePct.toFixed(1)}%`} />
+          <MiniStat label="Position" value={`$${portfolioValue.toFixed(0)}`} />
+        </div>
+      </div>
+
+      <div className="p-5 rounded-[26px] mb-4 text-center relative overflow-hidden" style={{ background: `linear-gradient(135deg, ${accent}, ${accent}55)`, boxShadow: SHADOW, border: `1px solid ${C.line}` }}>
+        <div className="text-[11px] font-semibold tracking-wide uppercase relative" style={{ color: "rgba(10,10,15,.7)", fontFamily: MONO }}>Your Position</div>
+        <div className="text-4xl font-black my-1 relative" style={{ color: C.app, letterSpacing: "-1px", fontFamily: DISPLAY }}>{"$" + portfolioValue.toFixed(2)}</div>
+        <div className="text-[12px] relative" style={{ color: "rgba(10,10,15,.75)", fontFamily: MONO }}>{shares.toFixed(3)} shares @ {"$" + price.toFixed(2)}</div>
+      </div>
+      <div className="flex gap-2 mb-3">
+        <button onClick={() => setMode("buy")} className="flex-1 py-2 rounded-xl text-[12.5px] font-bold uppercase" style={{ background: mode === "buy" ? C.good : C.surf2, color: mode === "buy" ? C.app : C.soft, fontFamily: MONO }}>Buy</button>
+        <button onClick={() => setMode("sell")} className="flex-1 py-2 rounded-xl text-[12.5px] font-bold uppercase" style={{ background: mode === "sell" ? C.ember : C.surf2, color: mode === "sell" ? C.app : C.soft, fontFamily: MONO }}>Sell</button>
+      </div>
+      <div className="flex gap-2 mb-1.5">
+        <input type="number" value={amt} onChange={(e) => setAmt(e.target.value)} placeholder={mode === "buy" ? `Cash to invest (have $${Math.round(S.cash)})` : `Shares to sell (have ${shares.toFixed(3)})`} className="flex-1 px-3.5 py-2.5 rounded-xl text-[14px] outline-none" style={{ background: C.surf2, color: C.ink, border: `1px solid ${C.line}` }} />
+        <button onClick={() => { const n = Number(amt); if (!n || n <= 0) return; if (mode === "buy") onBuyShares(n); else onSellShares(n); setAmt(""); }} className="px-4 rounded-xl font-bold text-[13px] uppercase active:scale-95 transition-transform" style={{ background: accent, color: C.app, fontFamily: MONO }}>{mode === "buy" ? "Buy" : "Sell"}</button>
+      </div>
+      <div className="text-[11px] text-center" style={{ color: C.soft, fontFamily: MONO }}>{mode === "buy" ? `≈ ${(Number(amt || 0) / price).toFixed(3)} shares at $${price.toFixed(2)}` : `≈ $${(Number(amt || 0) * price).toFixed(2)} at $${price.toFixed(2)}/share`}</div>
+    </div>
+  );
+}
+
+/* ================================================================== */
+/*  CHARACTER — outfit, gear, garage, property                        */
+/* ================================================================== */
+function SlotSection({ slot, S, onBuy, onEquip }) {
+  const { accent } = useAccent();
+  const items = ITEMS.filter((i) => i.slot === slot);
+  return (
+    <div className="px-4 mb-5">
+      <div style={lbl} className="mb-2 px-1">{SLOT_LABELS[slot]}</div>
+      <div className="grid grid-cols-3 gap-2">
+        <button onClick={() => onEquip(slot, null)} className="p-3 rounded-[18px] flex flex-col items-center" style={{ background: C.surf, border: `1px solid ${!S.equipped[slot] ? accent : C.line}` }}>
+          <div className="text-xl mb-1" style={{ color: C.soft }}>—</div>
+          <div className="text-[10px] font-bold uppercase" style={{ color: C.soft, fontFamily: MONO }}>None</div>
+        </button>
+        {items.map((item) => {
+          const owned = S.itemsOwned.includes(item.id);
+          const isEquipped = S.equipped[slot] === item.id;
+          const afford = S.cash >= item.price;
+          const icon = item.c1 ? <div className="rounded-full" style={{ width: 22, height: 22, background: `linear-gradient(135deg, ${item.c1}, ${item.c2})` }} /> : <span className="text-xl">{item.emoji || (item.style === "halo" ? "⭕" : item.style === "flame" ? "🔥" : "✨")}</span>;
+          return (
+            <div key={item.id} className="p-3 rounded-[18px] flex flex-col items-center text-center" style={{ background: C.surf, border: `1px solid ${isEquipped ? accent : C.line}`, boxShadow: SHADOW }}>
+              <div className="mb-1.5 h-[22px] flex items-center justify-center">{icon}</div>
+              <div className="text-[10px] font-semibold mb-1.5 truncate w-full" style={{ color: C.ink }}>{item.name}</div>
+              {owned ? (
+                <button onClick={() => onEquip(slot, item.id)} className="w-full py-1 rounded-lg text-[10px] font-bold" style={{ background: isEquipped ? accent : C.surf2, color: isEquipped ? C.app : C.soft }}>{isEquipped ? "On" : "Equip"}</button>
+              ) : (
+                <button onClick={() => onBuy(item)} disabled={!afford} className="w-full py-1 rounded-lg text-[10px] font-bold" style={{ background: afford ? accent : C.surf2, color: afford ? C.app : "#4A4A55", fontFamily: MONO }}>{"$" + item.price.toLocaleString()}</button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+function Character({ S, totalDone, onBuyItem, onEquipItem }) {
+  const { accent, accent2 } = useAccent();
+  const { stage, next, progress } = nextStageInfo(totalDone);
+  const [pulse, setPulse] = useState(false);
+  function act(fn) { fn(); setPulse(true); setTimeout(() => setPulse(false), 500); }
+  return (
+    <div className="pb-6 pt-2">
+      <div className="px-6 mb-3">
+        <div className="text-[25px] font-extrabold" style={{ color: C.ink, fontFamily: DISPLAY, letterSpacing: "-0.02em" }}>Character</div>
+        <div className="text-[13px] mt-0.5" style={{ color: C.soft }}>Gear up, garage up, move up. Drag to spin.</div>
+      </div>
+      <CharacterScene S={S} stage={stage} pulse={pulse} />
+      <div className="mx-4 mt-4 mb-5">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-[14px] font-extrabold" style={{ fontFamily: DISPLAY, color: C.ink }}>Level {stage}</span>
+          <span className="text-[11px]" style={{ color: C.soft, fontFamily: MONO }}>{S.itemsOwned.length} items owned</span>
+        </div>
+        <div className="h-1.5 rounded-full overflow-hidden" style={{ background: C.surf2 }}><div className="h-full" style={{ width: `${progress * 100}%`, background: `linear-gradient(90deg, ${accent}, ${accent2})` }} /></div>
+        <div className="text-[10px] mt-1" style={{ color: C.soft, fontFamily: MONO }}>{next != null ? `${next - totalDone} reps to level up` : "Max level reached"}</div>
+      </div>
+      {SLOTS.map((slot) => <SlotSection key={slot} slot={slot} S={S} onBuy={(item) => act(() => onBuyItem(item))} onEquip={(slot2, id) => act(() => onEquipItem(slot2, id))} />)}
+    </div>
+  );
+}
+
+/* ================================================================== */
+/*  PORTFOLIO                                                         */
+/* ================================================================== */
+function Stats({ S, energy, totalDone }) {
+  const { accent } = useAccent();
+  const grid = useMemo(() => {
+    const cells = S.dayLog.slice(-27).map((d) => (d.total ? d.done / d.total : 0));
+    while (cells.length < 27) cells.unshift(null);
+    cells.push(energy);
+    return cells;
+  }, [S.dayLog, energy]);
+  const cell = (v) => v == null ? C.surf2 : v < 0.4 ? "#2A2A3A" : v < 0.75 ? `${accent}55` : accent;
+  const bestDay = S.dayLog.reduce((m, d) => Math.max(m, d.done), 0);
+  const bestWeek = bestWeekPct(S.dayLog);
+  const athPrice = Math.max(BASE_PRICE, S.stock.price, ...S.stock.history.map((h) => h.price));
+  const totalChangePct = ((S.stock.price / BASE_PRICE) - 1) * 100;
+  const portfolioValue = S.stock.shares * S.stock.price;
+  const journalEntries = useMemo(() => Object.entries(S.journal || {}).filter(([, v]) => v && v.trim()).sort((a, b) => b[0].localeCompare(a[0])).slice(0, 12), [S.journal]);
+
+  return (
+    <div className="px-4 pb-6 pt-2">
+      <div className="px-2 mb-3"><div className="text-[25px] font-extrabold" style={{ color: C.ink, fontFamily: DISPLAY, letterSpacing: "-0.02em" }}>Portfolio</div></div>
+
+      <div className="p-4 rounded-[26px] mb-4" style={{ background: C.surf, border: `1px solid ${C.line}`, boxShadow: SHADOW }}>
+        <div className="flex items-center justify-between mb-2">
+          <div style={lbl}>ISWR · Iswara Capital</div>
+          <span className="text-[12px] font-bold" style={{ color: totalChangePct >= 0 ? C.good : C.ember, fontFamily: MONO }}>{(totalChangePct >= 0 ? "+" : "") + totalChangePct.toFixed(1) + "% since IPO"}</span>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          <MiniStat label="Price" value={`$${S.stock.price.toFixed(2)}`} />
+          <MiniStat label="All-time high" value={`$${athPrice.toFixed(2)}`} />
+          <MiniStat label="Position" value={`$${portfolioValue.toFixed(0)}`} />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2.5 mb-4">
+        <Stat big={S.streak} unit="day streak" icon="🔥" tint="#FF9E4A" />
+        <Stat big={`$${Math.round(portfolioValue)}`} unit="portfolio" icon="💹" tint={accent} />
+        <Stat big={totalDone} unit="habits tended" icon="✓" tint={C.good} />
+        <Stat big={S.assets.length} unit="assets tracked" icon="📊" tint={C.gold} />
+      </div>
+
+      <div className="p-4 rounded-[26px] mb-4" style={{ background: C.surf, border: `1px solid ${C.line}`, boxShadow: SHADOW }}>
+        <div style={lbl} className="mb-3">Last 28 days</div>
+        <div className="grid gap-1.5" style={{ gridTemplateColumns: "repeat(7,1fr)" }}>
+          {grid.map((v, i) => <div key={i} className={i === grid.length - 1 ? "trackpulse" : ""} style={{ aspectRatio: "1", borderRadius: 8, background: cell(v), border: i === grid.length - 1 ? `2px solid ${accent}` : "none" }} />)}
+        </div>
+      </div>
+
+      <div style={lbl} className="mb-2 px-1">Personal records</div>
+      <div className="grid grid-cols-3 gap-2.5 mb-4">
+        <MiniStat label="Best streak" value={`${S.bestStreakEver}d`} />
+        <MiniStat label="Best day" value={bestDay} />
+        <MiniStat label="Best week" value={`${bestWeek}%`} />
+      </div>
+
+      {journalEntries.length > 0 && <>
+        <div style={lbl} className="mb-2 px-1">Log history</div>
+        <div className="flex flex-col gap-2">
+          {journalEntries.map(([date, text]) => (
+            <div key={date} className="p-3 rounded-2xl" style={{ background: C.surf, border: `1px solid ${C.line}` }}>
+              <div className="text-[10px] uppercase mb-1" style={{ color: C.soft, fontFamily: MONO, letterSpacing: "0.04em" }}>{date}</div>
+              <div className="text-[13px]" style={{ color: C.ink }}>{text}</div>
+            </div>
+          ))}
+        </div>
+      </>}
+    </div>
+  );
+}
+function Stat({ big, unit, icon, tint }) {
+  return (
+    <div className="p-4 rounded-[22px]" style={{ background: C.surf, border: `1px solid ${C.line}`, boxShadow: SHADOW }}>
+      <div className="text-[15px] mb-1">{icon}</div>
+      <div className="text-[26px] font-bold leading-none" style={{ color: tint, letterSpacing: "-1px", fontFamily: MONO }}>{big}</div>
+      <div className="text-[11px] mt-1 uppercase" style={{ color: C.soft, fontFamily: MONO, letterSpacing: "0.03em" }}>{unit}</div>
+    </div>
+  );
+}
+
+/* ================================================================== */
+/*  ANIMATIONS                                                       */
+/* ================================================================== */
+function Style() {
+  return (
+    <style>{`
+      .fadeup{animation:fadeUp .4s cubic-bezier(.2,.7,.2,1) both}
+      @keyframes fadeUp{0%{opacity:0;transform:translateY(10px)}100%{opacity:1;transform:translateY(0)}}
+      @keyframes flyup{0%{opacity:0;transform:translateY(6px) scale(.8)}25%{opacity:1;transform:translateY(-4px) scale(1.2)}100%{opacity:0;transform:translateY(-30px)}}
+      @keyframes sparkFly{0%{opacity:0;transform:translate(0,0) scale(.5)}25%{opacity:1}100%{opacity:0;transform:translate(var(--dx),-42px) scale(1)}}
+      .spark{width:7px;height:7px;border-radius:50%;animation:sparkFly .8s ease-out forwards;position:absolute}
+      @keyframes checkPop{0%{transform:scale(1)}40%{transform:scale(1.5)}100%{transform:scale(1)}}
+      .checkpop{animation:checkPop .4s ease-out}
+      @keyframes trackPulse{0%,100%{box-shadow:0 0 0 0 rgba(124,92,255,.5)}50%{box-shadow:0 0 0 4px rgba(124,92,255,0)}}
+      .trackpulse{animation:trackPulse 1.7s ease-in-out infinite}
+      @keyframes breathe{0%,100%{transform:scaleY(1) rotate(0deg)}25%{transform:scaleY(1.014) rotate(-0.5deg)}75%{transform:scaleY(1.007) rotate(0.5deg)}}
+      .breathe{animation:breathe 3.6s ease-in-out infinite}
+      @keyframes charPulse{0%{transform:scale(1)}40%{transform:scale(1.08)}100%{transform:scale(1)}}
+      .charPulse{animation:charPulse .5s cubic-bezier(.3,1.5,.4,1)}
+      @keyframes compFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+      .companionFloat{animation:compFloat 3s ease-in-out infinite}
+      @keyframes twinkle2{0%,100%{opacity:.3;transform:scale(.8)}50%{opacity:1;transform:scale(1.15)}}
+      .twinkle2{animation:twinkle2 2.2s ease-in-out infinite}
+      @keyframes wheelSpin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+      .wheelSpin{animation:wheelSpin 5s linear infinite}
+      @keyframes carDriveIn{0%{transform:translateX(150px) scale(.92);opacity:0;filter:blur(6px)}55%{opacity:1}100%{transform:translateX(0) scale(1);opacity:1;filter:blur(0)}}
+      .carDriveIn{animation:carDriveIn .85s cubic-bezier(.2,.8,.2,1) both}
+      @keyframes sceneMote{0%{transform:translateY(0);opacity:0}15%{opacity:.55}88%{opacity:.25}100%{transform:translateY(-230px);opacity:0}}
+      .sceneMote{animation:sceneMote linear infinite}
+      @keyframes revealRing{0%{transform:scale(.3);opacity:.9}100%{transform:scale(7);opacity:0}}
+      .revealRing{animation:revealRing .6s ease-out forwards}
+      @keyframes revealSpark{0%{transform:rotate(var(--ang)) translateX(0) scale(1);opacity:1}100%{transform:rotate(var(--ang)) translateX(72px) scale(.4);opacity:0}}
+      @media (prefers-reduced-motion:reduce){*{animation:none!important}}
+    `}</style>
+  );
+}
+
+
+ReactDOM.createRoot(document.getElementById('root')).render(<Terra />);
+
+</script>
+</body>
+</html>
