@@ -441,24 +441,32 @@ function CharacterScene({ S, stage, pulse }) {
   const { accent } = useAccent();
   const eq = useMemo(() => resolveEquipped(S.equipped), [S.equipped]);
   const { t, ref, handlers } = useTilt();
+  const [poke, setPoke] = useState(false);
+  function onPoke() { if (poke || pulse) return; setPoke(true); setTimeout(() => setPoke(false), 480); }
   return (
     <div ref={ref} {...handlers} className="mx-4 rounded-[28px] relative overflow-hidden" style={{ height: 320, background: "radial-gradient(circle at 50% 20%, #22232F 0%, #0A0A0F 78%)", border: `1px solid ${C.line}`, boxShadow: SHADOW, touchAction: "none" }}>
       <div className="absolute left-1/2 top-0 -translate-x-1/2 pointer-events-none" style={{ width: 160, height: "82%", background: `linear-gradient(180deg, ${accent}26, transparent 75%)`, clipPath: "polygon(50% 0%, 14% 100%, 86% 100%)" }} />
       {eq.property && (
-        <div className="absolute inset-x-0 top-6 flex items-center justify-center pointer-events-none" style={{ fontSize: 92, filter: "brightness(0) invert(1) opacity(.13)" }}>{eq.property.emoji}</div>
+        <div className="absolute inset-x-0 top-6 flex items-center justify-center pointer-events-none" style={{ fontSize: 92, filter: "brightness(0) invert(1) opacity(.13)", transform: `translateX(${t.x * -4}px)`, transition: "transform .18s var(--snap)" }}>
+          {eq.property.emoji}
+          {[0, 1, 2].map((i) => <span key={i} className="absolute rounded-full twinkle2" style={{ left: `${42 + i * 8}%`, top: `${30 + (i % 2) * 22}%`, width: 3, height: 3, background: "#fff", animationDelay: `${i * 0.5}s` }} />)}
+        </div>
       )}
       {[0, 1, 2, 3, 4, 5].map((i) => (
         <span key={i} className="absolute rounded-full sceneMote pointer-events-none" style={{ left: `${8 + i * 16}%`, bottom: 14, width: 3, height: 3, background: accent, animationDelay: `${i * 0.9}s`, animationDuration: `${5 + (i % 3)}s` }} />
       ))}
-      <div className="absolute left-1/2 bottom-7 -translate-x-1/2 rounded-full pointer-events-none" style={{ width: 230, height: 46, border: `1px solid ${C.line}`, background: `radial-gradient(ellipse, ${accent}18, transparent 72%)` }} />
-      <div className="absolute top-3 left-4 px-2 py-1 rounded-md text-[11px] font-bold" style={{ background: "rgba(0,0,0,.45)", color: accent, fontFamily: MONO }}>LVL {stage}</div>
+      <div className="absolute left-1/2 bottom-7 -translate-x-1/2 rounded-full pointer-events-none" style={{ width: 236, height: 50, border: `1px solid ${C.line}`, background: `radial-gradient(ellipse, ${accent}22, transparent 70%)` }} />
+      <div className="absolute left-1/2 bottom-7 -translate-x-1/2 rounded-full pointer-events-none" style={{ width: 168, height: 34, border: `1px solid ${accent}55` }} />
+      <div className="absolute top-3 left-4 px-2.5 py-1 rounded-md text-[11px] font-bold flex items-center gap-1" style={{ background: `linear-gradient(135deg, ${C.surf2}, rgba(0,0,0,.5))`, border: `1px solid ${accent}44`, color: accent, fontFamily: MONO, boxShadow: `0 0 12px ${accent}30` }}>
+        <span style={{ fontSize: 9 }}>▲</span>LVL {stage}
+      </div>
       {eq.car && (
         <div key={eq.car.id} className="absolute right-3 bottom-11 carDriveIn" style={{ width: 108 }}>
           <CarFigure tier={carTierOf(eq.car.id)} size={108} />
         </div>
       )}
-      <div className="absolute inset-0 flex items-end justify-center pb-4">
-        <CharacterFigure outfit={eq.outfit} headItem={eq.head && eq.head.emoji} aura={eq.aura && eq.aura.style} sidekick={eq.sidekick && eq.sidekick.emoji} tiltX={t.x * 10} tiltY={t.y * 10} pulse={pulse} />
+      <div onClick={onPoke} className="absolute inset-0 flex items-end justify-center pb-4" style={{ cursor: "pointer" }}>
+        <CharacterFigure outfit={eq.outfit} headItem={eq.head && eq.head.emoji} aura={eq.aura && eq.aura.style} sidekick={eq.sidekick && eq.sidekick.emoji} tiltX={t.x * 10} tiltY={t.y * 10} pulse={pulse || poke} />
       </div>
       {pulse && (
         <div className="absolute inset-0 pointer-events-none">
@@ -1109,7 +1117,7 @@ function SlotSection({ slot, S, onBuy, onEquip }) {
     <div className="px-4 mb-5">
       <div style={lbl} className="mb-2 px-1">{SLOT_LABELS[slot]}</div>
       <div className="grid grid-cols-3 gap-2">
-        <button onClick={() => onEquip(slot, null)} className="p-3 rounded-[18px] flex flex-col items-center" style={{ background: C.surf, border: `1px solid ${!S.equipped[slot] ? accent : C.line}` }}>
+        <button onClick={() => onEquip(slot, null)} className="p-3 rounded-[18px] flex flex-col items-center hoverLift press" style={{ background: C.surf, border: `1px solid ${!S.equipped[slot] ? accent : C.line}`, boxShadow: !S.equipped[slot] ? `0 0 0 1px ${accent}44, 0 0 14px ${accent}33` : "none" }}>
           <div className="text-xl mb-1" style={{ color: C.soft }}>—</div>
           <div className="text-[10px] font-bold uppercase" style={{ color: C.soft, fontFamily: MONO }}>None</div>
         </button>
@@ -1119,13 +1127,13 @@ function SlotSection({ slot, S, onBuy, onEquip }) {
           const afford = S.cash >= item.price;
           const icon = item.c1 ? <div className="rounded-full" style={{ width: 22, height: 22, background: `linear-gradient(135deg, ${item.c1}, ${item.c2})` }} /> : <span className="text-xl">{item.emoji || (item.style === "halo" ? "⭕" : item.style === "flame" ? "🔥" : "✨")}</span>;
           return (
-            <div key={item.id} className="p-3 rounded-[18px] flex flex-col items-center text-center" style={{ background: C.surf, border: `1px solid ${isEquipped ? accent : C.line}`, boxShadow: SHADOW }}>
+            <div key={item.id} className="p-3 rounded-[18px] flex flex-col items-center text-center hoverLift" style={{ background: C.surf, border: `1px solid ${isEquipped ? accent : C.line}`, boxShadow: isEquipped ? `0 0 0 1px ${accent}44, 0 0 16px ${accent}40, ${SHADOW}` : SHADOW }}>
               <div className="mb-1.5 h-[22px] flex items-center justify-center">{icon}</div>
               <div className="text-[10px] font-semibold mb-1.5 truncate w-full" style={{ color: C.ink }}>{item.name}</div>
               {owned ? (
-                <button onClick={() => onEquip(slot, item.id)} className="w-full py-1 rounded-lg text-[10px] font-bold" style={{ background: isEquipped ? accent : C.surf2, color: isEquipped ? C.app : C.soft }}>{isEquipped ? "On" : "Equip"}</button>
+                <button onClick={() => onEquip(slot, item.id)} className="w-full py-1 rounded-lg text-[10px] font-bold press" style={{ background: isEquipped ? accent : C.surf2, color: isEquipped ? C.app : C.soft }}>{isEquipped ? "On" : "Equip"}</button>
               ) : (
-                <button onClick={() => onBuy(item)} disabled={!afford} className="w-full py-1 rounded-lg text-[10px] font-bold" style={{ background: afford ? accent : C.surf2, color: afford ? C.app : "#4A4A55", fontFamily: MONO }}>{"$" + item.price.toLocaleString()}</button>
+                <button onClick={() => onBuy(item)} disabled={!afford} className="w-full py-1 rounded-lg text-[10px] font-bold press" style={{ background: afford ? accent : C.surf2, color: afford ? C.app : "#4A4A55", fontFamily: MONO }}>{"$" + item.price.toLocaleString()}</button>
               )}
             </div>
           );
