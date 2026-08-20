@@ -497,38 +497,79 @@ function IsoBox({ a0, a1, b0, b1, h, top, right, left }) {
   );
 }
 const ROOM_THEMES = {
-  none: { wallL: "#191a20", wallR: "#131319", floorA: "#101116", floorB: "#0b0c10", trim: "#2a2b33" },
-  prop_apt: { wallL: "#2b2f3a", wallR: "#22252e", floorA: "#3c2f24", floorB: "#33271e", trim: "#565c6c" },
-  prop_house: { wallL: "#3a3126", wallR: "#2e271e", floorA: "#5a4632", floorB: "#4a3928", trim: "#8a6c42" },
-  prop_villa: { wallL: "#254040", wallR: "#1c3232", floorA: "#3f6b6b", floorB: "#345858", trim: "#6cc4c4" },
-  prop_mansion: { wallL: "#2e2538", wallR: "#221b2a", floorA: "#241f2c", floorB: "#1b1722", trim: "#D8B45E" },
+  none: { wallL: "#1c1d24", wallR: "#15161b", floorA: "#131319", floorB: "#0c0c11", trim: "#3a3b47", lamp: "#C9CDD9" },
+  prop_apt: { wallL: "#323a4a", wallR: "#262c39", floorA: "#4a3826", floorB: "#3c2c1e", trim: "#6c7690", lamp: "#FFD9A0" },
+  prop_house: { wallL: "#463726", wallR: "#37291b", floorA: "#6b4f30", floorB: "#573f26", trim: "#C48A3D", lamp: "#FFB870" },
+  prop_villa: { wallL: "#1c4a52", wallR: "#153840", floorA: "#2f8a94", floorB: "#256e78", trim: "#5CE0D8", lamp: "#FF9E5C" },
+  prop_mansion: { wallL: "#3a2a4d", wallR: "#2c1f3d", floorA: "#2a2038", floorB: "#1f1829", trim: "#F0C25A", lamp: "#F5D77A" },
 };
-function furnitureFor(propId) {
+function IsoRug({ a0, a1, b0, b1, base, accent }) {
+  return (
+    <g>
+      <polygon points={isoFloorQuad(a0, a1, b0, b1)} fill={base} />
+      <polygon points={isoFloorQuad(a0 + 0.025, a1 - 0.025, b0 + 0.025, b1 - 0.025)} fill="none" stroke={accent} strokeWidth="1.2" opacity="0.6" />
+    </g>
+  );
+}
+function IsoLamp({ a, b, h = 44, shade, flicker }) {
+  const base = isoPt(a, b), tip = { x: base.x, y: base.y - h };
+  return (
+    <g>
+      <line x1={base.x} y1={base.y} x2={tip.x} y2={tip.y} stroke="#2a2a30" strokeWidth="2.2" />
+      <ellipse cx={base.x} cy={base.y + 1} rx="9" ry="3" fill="#111116" />
+      <path d={`M${tip.x - 11} ${tip.y} L${tip.x + 11} ${tip.y} L${tip.x + 7} ${tip.y - 12} L${tip.x - 7} ${tip.y - 12} Z`} fill={shade} opacity="0.92" />
+      <circle className={flicker ? "lampFlicker" : ""} cx={tip.x} cy={tip.y - 2} r="13" fill={shade} opacity="0.3" />
+    </g>
+  );
+}
+function furnitureFor(propId, stage) {
   const top = leftWallPt(1, 0);
+  const trophyShelf = stage >= 10 && (
+    <g key="trophyshelf">
+      <IsoBox a0={0.04} a1={0.2} b0={0.04} b1={0.14} h={8} top="#B8983F" right="#6b5225" left="#8a6c2c" />
+      {[0, 1, 2].map((i) => <rect key={i} x={isoPt(0.06 + i * 0.05, 0.09).x - 3} y={isoPt(0.06 + i * 0.05, 0.09).y - 8 - 14} width="6" height="14" fill={["#F5D77A", "#B968FF", "#4FA3FF"][i]} className="gemGlint" style={{ animationDelay: `${i * 0.25}s` }} />)}
+    </g>
+  );
   switch (propId) {
     case "prop_apt":
       return (
         <>
+          <IsoRug a0={0.14} a1={0.56} b0={0.5} b1={0.86} base="#7a4a3a" accent="#C48A3D" />
           <polygon points={wallQuad("right", 0.28, 0.62, 44, 92)} fill="#8fd4ff" opacity="0.32" />
           <polygon points={wallQuad("right", 0.28, 0.62, 44, 92)} fill="none" stroke="#0009" strokeWidth="2" />
-          <IsoBox a0={0.06} a1={0.5} b0={0.58} b1={0.94} h={22} top="#8a97b0" right="#454d60" left="#5a6276" />
-          <IsoBox a0={0.06} a1={0.24} b0={0.58} b1={0.66} h={38} top="#c8cfe0" right="#7d879e" left="#98a1b8" />
-          <IsoBox a0={0.6} a1={0.72} b0={0.16} b1={0.28} h={16} top="#5a3d28" right="#382518" left="#4a3120" />
-          <circle cx={isoPt(0.66, 0.22).x} cy={isoPt(0.66, 0.22).y - 30} r="15" fill="#4a9d5c" />
-          <circle cx={isoPt(0.66, 0.22).x - 8} cy={isoPt(0.66, 0.22).y - 38} r="10" fill="#3f8f52" />
+          <polygon points={wallQuad("left", 0.62, 0.82, 30, 66)} fill="#2a2f3c" />
+          <polygon points={wallQuad("left", 0.66, 0.78, 36, 58)} fill="#E85D75" opacity="0.75" />
+          <IsoBox a0={0.06} a1={0.5} b0={0.58} b1={0.94} h={22} top="#9aa7c0" right="#4f5870" left="#657088" />
+          <IsoBox a0={0.06} a1={0.24} b0={0.58} b1={0.66} h={38} top="#d8dff0" right="#8d97ae" left="#a8b1c8" />
+          <IsoBox a0={0.6} a1={0.72} b0={0.16} b1={0.28} h={16} top="#6a4a30" right="#40291a" left="#553826" />
+          <circle cx={isoPt(0.66, 0.22).x} cy={isoPt(0.66, 0.22).y - 30} r="16" fill="#54B368" />
+          <circle cx={isoPt(0.66, 0.22).x - 9} cy={isoPt(0.66, 0.22).y - 39} r="11" fill="#3f8f52" />
+          <IsoLamp a={0.52} b={0.28} h={48} shade="#FFD9A0" flicker />
+          {[0, 1, 2, 3, 4].map((i) => {
+            const p = isoPt(0.3 + i * 0.09, 0.06);
+            return <circle key={i} className="twinkle2" cx={p.x} cy={p.y - 96} r="2.4" fill="#FFD9A0" style={{ animationDelay: `${i * 0.25}s` }} />;
+          })}
+          <IsoBox a0={0.78} a1={0.9} b0={0.68} b1={0.8} h={14} top="#c9a45a" right="#7a5f30" left="#a17f42" />
+          {trophyShelf}
         </>
       );
     case "prop_house":
       return (
         <>
+          <IsoRug a0={0.1} a1={0.62} b0={0.42} b1={0.9} base="#9c3232" accent="#E8B25C" />
           <polygon points={wallQuad("left", 0.2, 0.52, 46, 94)} fill="#ffd79a" opacity="0.28" />
           <polygon points={wallQuad("left", 0.2, 0.52, 46, 94)} fill="none" stroke="#0009" strokeWidth="2" />
-          <polygon points={isoFloorQuad(0.1, 0.62, 0.42, 0.9)} fill="#7a2f2f" opacity="0.4" />
-          <IsoBox a0={0.5} a1={0.86} b0={0.5} b1={0.82} h={30} top="#9a7a52" right="#5c452c" left="#75593a" />
-          <IsoBox a0={0.5} a1={0.6} b0={0.5} b1={0.82} h={44} top="#c4a678" right="#7d5f3d" left="#a3844f" />
+          <IsoBox a0={0.56} a1={0.72} b0={0.06} b1={0.22} h={38} top="#8a5a3a" right="#4c2f1c" left="#684226" />
+          <polygon points={wallQuad("left", 0.6, 0.7, 8, 26)} fill="#FF7A3C" opacity="0.85" className="lampFlicker" />
+          <polygon points={wallQuad("left", 0.6, 0.7, 8, 26)} fill="none" stroke="#2a1006" strokeWidth="2" />
+          <IsoBox a0={0.5} a1={0.86} b0={0.5} b1={0.82} h={30} top="#b28a5c" right="#674f30" left="#836345" />
+          <IsoBox a0={0.5} a1={0.6} b0={0.5} b1={0.82} h={44} top="#d8b880" right="#8d6c44" left="#b3925a" />
           <IsoBox a0={0.66} a1={0.9} b0={0.12} b1={0.24} h={40} top="#232323" right="#000" left="#141414" />
           <rect x={isoPt(0.68, 0.18).x - 15} y={isoPt(0.68, 0.18).y - 62} width="30" height="20" rx="2" fill="#8fd4ff" opacity="0.7" />
-          <IsoBox a0={0.12} a1={0.22} b0={0.08} b1={0.42} h={34} top="#6b5738" right="#3f321f" left="#54432a" />
+          <IsoBox a0={0.12} a1={0.22} b0={0.08} b1={0.42} h={34} top="#7a6440" right="#463726" left="#5c4a2f" />
+          {[0, 1, 2, 3].map((i) => <rect key={i} x={isoPt(0.13 + i * 0.02, 0.24).x - 2} y={isoPt(0.13 + i * 0.02, 0.24).y - 34 - 12} width="4" height="12" fill={["#C4444B", "#3F8F52", "#4FA3FF", "#F5B429"][i]} />)}
+          <IsoLamp a={0.32} b={0.9} h={50} shade="#FFB870" flicker />
+          {trophyShelf}
         </>
       );
     case "prop_villa":
@@ -536,18 +577,24 @@ function furnitureFor(propId) {
         <>
           <polygon points={wallQuad("right", 0.16, 0.68, 40, 100)} fill="#bdf0ff" opacity="0.3" />
           <polygon points={wallQuad("right", 0.16, 0.68, 40, 100)} fill="none" stroke="#0007" strokeWidth="2" />
-          <polygon points={isoFloorQuad(0.5, 0.94, 0.5, 0.94)} fill="#3aa8c4" opacity="0.55" />
+          <polygon points={isoFloorQuad(0.5, 0.94, 0.5, 0.94)} fill="#28a8bc" opacity="0.62" />
           <path d={`M${isoPt(0.55, 0.55).x} ${isoPt(0.55, 0.55).y} Q${isoPt(0.72, 0.72).x} ${isoPt(0.6, 0.6).y} ${isoPt(0.88, 0.88).x} ${isoPt(0.88, 0.88).y}`} stroke="#cfeff5" strokeWidth="1.5" fill="none" opacity="0.6" />
-          <IsoBox a0={0.06} a1={0.42} b0={0.55} b1={0.85} h={16} top="#e8e2d0" right="#a8a390" left="#c4bfa8" />
+          <IsoRug a0={0.06} a1={0.42} b0={0.55} b1={0.85} base="#e8e2d0" accent="#5CE0D8" />
+          <IsoBox a0={0.1} a1={0.36} b0={0.6} b1={0.8} h={13} top="#f0ece0" right="#a8a390" left="#c4bfa8" />
           <IsoBox a0={0.6} a1={0.7} b0={0.12} b1={0.22} h={30} top="#4a2f1e" right="#2c1c11" left="#3a2517" />
           {[0, 1, 2].map((i) => (
-            <ellipse key={i} cx={isoPt(0.65, 0.17).x + (i - 1) * 14} cy={isoPt(0.65, 0.17).y - 44 - (i % 2) * 6} rx="13" ry="8" fill="#3f8f52" transform={`rotate(${(i - 1) * 22} ${isoPt(0.65, 0.17).x + (i - 1) * 14} ${isoPt(0.65, 0.17).y - 44})`} />
+            <ellipse key={i} cx={isoPt(0.65, 0.17).x + (i - 1) * 14} cy={isoPt(0.65, 0.17).y - 44 - (i % 2) * 6} rx="13" ry="8" fill="#3fbf6a" transform={`rotate(${(i - 1) * 22} ${isoPt(0.65, 0.17).x + (i - 1) * 14} ${isoPt(0.65, 0.17).y - 44})`} />
           ))}
+          <IsoLamp a={0.9} b={0.42} h={54} shade="#FF9E5C" flicker />
+          <IsoLamp a={0.4} b={0.06} h={54} shade="#FF9E5C" flicker />
+          <IsoBox a0={0.02} a1={0.14} b0={0.62} b1={0.74} h={10} top="#e8e2d0" right="#a8a390" left="#c4bfa8" />
+          {trophyShelf}
         </>
       );
     case "prop_mansion":
       return (
         <>
+          <IsoRug a0={0.08} a1={0.5} b0={0.5} b1={0.92} base="#4a2a52" accent="#F0C25A" />
           <polygon points={wallQuad("left", 0.15, 0.55, 38, 108)} fill="#e8dcff" opacity="0.22" />
           <path d={wallQuad("left", 0.15, 0.55, 38, 108).split(" ").map((p, i) => (i === 0 ? "M" + p : "L" + p)).join(" ") + " Z"} fill="none" stroke="#D8B45E" strokeWidth="1.5" opacity="0.6" />
           <polygon points={isoFloorQuad(0.08, 0.92, 0.08, 0.92)} fill="none" stroke="#D8B45E" strokeWidth="1" opacity="0.25" />
@@ -560,7 +607,13 @@ function furnitureFor(propId) {
           ))}
           <IsoBox a0={0.62} a1={0.76} b0={0.14} b1={0.28} h={46} top="#f0e4b8" right="#8a6c2c" left="#b8983f" />
           <circle cx={isoPt(0.69, 0.21).x} cy={isoPt(0.69, 0.21).y - 54} r="9" fill="#F5D77A" className="gemGlint" />
-          <IsoBox a0={0.1} a1={0.36} b0={0.58} b1={0.9} h={14} top="#4a2540" right="#2c1626" left="#3a1e33" />
+          <IsoBox a0={0.1} a1={0.34} b0={0.6} b1={0.9} h={16} top="#5a2f65" right="#331a3a" left="#452650" />
+          <IsoBox a0={0.06} a1={0.14} b0={0.06} b1={0.14} h={92} top="#f0e4b8" right="#8a6c2c" left="#b8983f" />
+          <IsoBox a0={0.82} a1={0.9} b0={0.06} b1={0.14} h={92} top="#f0e4b8" right="#8a6c2c" left="#b8983f" />
+          {[0, 1].map((i) => (
+            <rect key={i} x={isoPt(i ? 0.86 : 0.1, 0.1).x - 12} y={isoPt(i ? 0.86 : 0.1, 0.1).y - 92 - 10} width="24" height="10" rx="2" fill="#F0C25A" />
+          ))}
+          {trophyShelf}
         </>
       );
     default:
@@ -570,14 +623,17 @@ function furnitureFor(propId) {
           <circle className="lampFlicker" cx={top.x} cy={top.y + 40} r="6" fill="#F5E7A8" opacity="0.9" />
           <polygon points={wallQuad("right", 0.3, 0.6, 40, 82)} fill="#3a4550" opacity="0.4" />
           <polygon points={wallQuad("right", 0.3, 0.6, 40, 82)} fill="none" stroke="#0008" strokeWidth="2" />
+          <IsoBox a0={0.66} a1={0.8} b0={0.66} b1={0.8} h={20} top="#3a3b47" right="#1e1f26" left="#2a2b33" />
+          {trophyShelf}
         </>
       );
   }
 }
-function RoomScene({ propId }) {
+function RoomScene({ propId, stage }) {
   const theme = ROOM_THEMES[propId || "none"];
   const WH = 132;
   const W = isoPt(0, 0), N = isoPt(1, 0), E = isoPt(1, 1);
+  const Nu = { x: N.x, y: N.y - WH }, Wu = { x: W.x, y: W.y - WH }, Eu = { x: E.x, y: E.y - WH };
   const GRID = 5;
   const tiles = [];
   for (let i = 0; i < GRID; i++) for (let j = 0; j < GRID; j++) {
@@ -585,11 +641,12 @@ function RoomScene({ propId }) {
   }
   return (
     <svg viewBox="0 0 400 320" width="100%" height="100%" preserveAspectRatio="none" style={{ position: "absolute", inset: 0 }}>
-      <polygon points={pStr(W, N, { x: N.x, y: N.y - WH }, { x: W.x, y: W.y - WH })} fill={theme.wallL} />
-      <polygon points={pStr(N, E, { x: E.x, y: E.y - WH }, { x: N.x, y: N.y - WH })} fill={theme.wallR} />
+      <polygon points={pStr(W, N, Nu, Wu)} fill={theme.wallL} />
+      <polygon points={pStr(N, E, Eu, Nu)} fill={theme.wallR} />
       <g>{tiles}</g>
-      <polyline points={pStr(W, N, E)} fill="none" stroke={theme.trim} strokeOpacity="0.4" strokeWidth="2" />
-      {furnitureFor(propId)}
+      <polyline points={pStr(W, N, E)} fill="none" stroke={theme.trim} strokeOpacity="0.5" strokeWidth="2.5" />
+      <polyline points={pStr(Wu, Nu, Eu)} fill="none" stroke={theme.trim} strokeOpacity="0.28" strokeWidth="1.5" />
+      {furnitureFor(propId, stage)}
       <polygon points={pStr(W, N, E, isoPt(0, 1))} fill="url(#roomVignette)" opacity="0.35" />
       <defs>
         <radialGradient id="roomVignette" cx="50%" cy="15%" r="75%"><stop offset="0%" stopColor="#000" stopOpacity="0" /><stop offset="100%" stopColor="#000" stopOpacity="0.55" /></radialGradient>
@@ -604,6 +661,7 @@ function CarShowcase({ tier, size = 150 }) {
   return (
     <div style={{ position: "relative", width: size, height: size * 0.72 }}>
       <div className="absolute pointer-events-none" style={{ left: "50%", top: "-18%", width: size * 1.5, height: size, transform: "translateX(-50%)", background: `radial-gradient(ellipse at 50% 0%, ${glow}4d, transparent 72%)` }} />
+      <div className="absolute pointer-events-none rounded-full" style={{ left: "50%", bottom: size * 0.16, width: size * 0.86, height: size * 0.2, transform: "translateX(-50%)", background: `radial-gradient(ellipse, ${glow}59, transparent 72%)` }} />
       {tier >= 2 && [0, 1, 2].map((i) => (
         <span key={i} className="absolute speedLine pointer-events-none" style={{ right: size * 0.98, top: `${28 + i * 16}%`, width: size * 0.55, height: 2, background: `linear-gradient(90deg, transparent, ${glow}bb)`, animationDelay: `${i * 0.32}s` }} />
       ))}
@@ -626,7 +684,7 @@ function CharacterScene({ S, stage, pulse }) {
   const elite = stage >= 17, legend = stage >= 22, decorated = stage >= 10;
   return (
     <div ref={ref} {...handlers} className={"mx-4 rounded-[28px] relative overflow-hidden" + (elite ? " legendRim" : "")} style={{ height: 430, background: "#0A0A0F", border: `1px solid ${legend ? "#F5B429" : C.line}`, boxShadow: SHADOW, touchAction: "none" }}>
-      <RoomScene propId={eq.property && eq.property.id} />
+      <RoomScene propId={eq.property && eq.property.id} stage={stage} />
       <div className="absolute top-0 pointer-events-none" style={{ left: "38%", width: 170, height: "58%", transform: "translateX(-50%)", background: `linear-gradient(180deg, ${accent}22, transparent 80%)`, clipPath: "polygon(50% 0%, 22% 100%, 78% 100%)" }} />
       {Array.from({ length: moteCount }, (_, i) => (
         <span key={i} className="absolute rounded-full sceneMote pointer-events-none" style={{ left: `${6 + i * (88 / moteCount)}%`, bottom: 14, width: 3, height: 3, background: accent, animationDelay: `${i * 0.8}s`, animationDuration: `${5 + (i % 3)}s` }} />
