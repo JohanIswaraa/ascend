@@ -443,6 +443,148 @@ function CarFigure({ tier, size = 120 }) {
     </svg>
   );
 }
+/* ---- isometric room ---- */
+const ISO_W = { x: 60, y: 196 };
+const ISO_DA = { x: 130, y: -76 };
+const ISO_DB = { x: 130, y: 76 };
+function isoPt(a, b) { return { x: ISO_W.x + a * ISO_DA.x + b * ISO_DB.x, y: ISO_W.y + a * ISO_DA.y + b * ISO_DB.y }; }
+function pStr(...pts) { return pts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" "); }
+function isoFloorQuad(a0, a1, b0, b1) { return pStr(isoPt(a0, b0), isoPt(a1, b0), isoPt(a1, b1), isoPt(a0, b1)); }
+function leftWallPt(a, h) { const p = isoPt(a, 0); return { x: p.x, y: p.y - h }; }
+function rightWallPt(b, h) { const p = isoPt(1, b); return { x: p.x, y: p.y - h }; }
+function wallQuad(side, u0, u1, h0, h1) { const f = side === "left" ? leftWallPt : rightWallPt; return pStr(f(u0, h0), f(u1, h0), f(u1, h1), f(u0, h1)); }
+function IsoBox({ a0, a1, b0, b1, h, top, right, left }) {
+  const P00 = isoPt(a0, b0), P10 = isoPt(a1, b0), P11 = isoPt(a1, b1), P01 = isoPt(a0, b1);
+  const up = (p) => ({ x: p.x, y: p.y - h });
+  const P00u = up(P00), P10u = up(P10), P11u = up(P11), P01u = up(P01);
+  return (
+    <g>
+      <polygon points={pStr(P01, P11, P11u, P01u)} fill={left} stroke="rgba(0,0,0,.3)" strokeWidth="0.5" />
+      <polygon points={pStr(P10, P11, P11u, P10u)} fill={right} stroke="rgba(0,0,0,.3)" strokeWidth="0.5" />
+      <polygon points={pStr(P00u, P10u, P11u, P01u)} fill={top} stroke="rgba(0,0,0,.3)" strokeWidth="0.5" />
+    </g>
+  );
+}
+const ROOM_THEMES = {
+  none: { wallL: "#191a20", wallR: "#131319", floorA: "#101116", floorB: "#0b0c10", trim: "#2a2b33" },
+  prop_apt: { wallL: "#2b2f3a", wallR: "#22252e", floorA: "#3c2f24", floorB: "#33271e", trim: "#565c6c" },
+  prop_house: { wallL: "#3a3126", wallR: "#2e271e", floorA: "#5a4632", floorB: "#4a3928", trim: "#8a6c42" },
+  prop_villa: { wallL: "#254040", wallR: "#1c3232", floorA: "#3f6b6b", floorB: "#345858", trim: "#6cc4c4" },
+  prop_mansion: { wallL: "#2e2538", wallR: "#221b2a", floorA: "#241f2c", floorB: "#1b1722", trim: "#D8B45E" },
+};
+function furnitureFor(propId) {
+  const top = leftWallPt(1, 0);
+  switch (propId) {
+    case "prop_apt":
+      return (
+        <>
+          <polygon points={wallQuad("right", 0.28, 0.62, 44, 92)} fill="#8fd4ff" opacity="0.32" />
+          <polygon points={wallQuad("right", 0.28, 0.62, 44, 92)} fill="none" stroke="#0009" strokeWidth="2" />
+          <IsoBox a0={0.06} a1={0.5} b0={0.58} b1={0.94} h={22} top="#8a97b0" right="#454d60" left="#5a6276" />
+          <IsoBox a0={0.06} a1={0.24} b0={0.58} b1={0.66} h={38} top="#c8cfe0" right="#7d879e" left="#98a1b8" />
+          <IsoBox a0={0.6} a1={0.72} b0={0.16} b1={0.28} h={16} top="#5a3d28" right="#382518" left="#4a3120" />
+          <circle cx={isoPt(0.66, 0.22).x} cy={isoPt(0.66, 0.22).y - 30} r="15" fill="#4a9d5c" />
+          <circle cx={isoPt(0.66, 0.22).x - 8} cy={isoPt(0.66, 0.22).y - 38} r="10" fill="#3f8f52" />
+        </>
+      );
+    case "prop_house":
+      return (
+        <>
+          <polygon points={wallQuad("left", 0.2, 0.52, 46, 94)} fill="#ffd79a" opacity="0.28" />
+          <polygon points={wallQuad("left", 0.2, 0.52, 46, 94)} fill="none" stroke="#0009" strokeWidth="2" />
+          <polygon points={isoFloorQuad(0.1, 0.62, 0.42, 0.9)} fill="#7a2f2f" opacity="0.4" />
+          <IsoBox a0={0.5} a1={0.86} b0={0.5} b1={0.82} h={30} top="#9a7a52" right="#5c452c" left="#75593a" />
+          <IsoBox a0={0.5} a1={0.6} b0={0.5} b1={0.82} h={44} top="#c4a678" right="#7d5f3d" left="#a3844f" />
+          <IsoBox a0={0.66} a1={0.9} b0={0.12} b1={0.24} h={40} top="#232323" right="#000" left="#141414" />
+          <rect x={isoPt(0.68, 0.18).x - 15} y={isoPt(0.68, 0.18).y - 62} width="30" height="20" rx="2" fill="#8fd4ff" opacity="0.7" />
+          <IsoBox a0={0.12} a1={0.22} b0={0.08} b1={0.42} h={34} top="#6b5738" right="#3f321f" left="#54432a" />
+        </>
+      );
+    case "prop_villa":
+      return (
+        <>
+          <polygon points={wallQuad("right", 0.16, 0.68, 40, 100)} fill="#bdf0ff" opacity="0.3" />
+          <polygon points={wallQuad("right", 0.16, 0.68, 40, 100)} fill="none" stroke="#0007" strokeWidth="2" />
+          <polygon points={isoFloorQuad(0.5, 0.94, 0.5, 0.94)} fill="#3aa8c4" opacity="0.55" />
+          <path d={`M${isoPt(0.55, 0.55).x} ${isoPt(0.55, 0.55).y} Q${isoPt(0.72, 0.72).x} ${isoPt(0.6, 0.6).y} ${isoPt(0.88, 0.88).x} ${isoPt(0.88, 0.88).y}`} stroke="#cfeff5" strokeWidth="1.5" fill="none" opacity="0.6" />
+          <IsoBox a0={0.06} a1={0.42} b0={0.55} b1={0.85} h={16} top="#e8e2d0" right="#a8a390" left="#c4bfa8" />
+          <IsoBox a0={0.6} a1={0.7} b0={0.12} b1={0.22} h={30} top="#4a2f1e" right="#2c1c11" left="#3a2517" />
+          {[0, 1, 2].map((i) => (
+            <ellipse key={i} cx={isoPt(0.65, 0.17).x + (i - 1) * 14} cy={isoPt(0.65, 0.17).y - 44 - (i % 2) * 6} rx="13" ry="8" fill="#3f8f52" transform={`rotate(${(i - 1) * 22} ${isoPt(0.65, 0.17).x + (i - 1) * 14} ${isoPt(0.65, 0.17).y - 44})`} />
+          ))}
+        </>
+      );
+    case "prop_mansion":
+      return (
+        <>
+          <polygon points={wallQuad("left", 0.15, 0.55, 38, 108)} fill="#e8dcff" opacity="0.22" />
+          <path d={wallQuad("left", 0.15, 0.55, 38, 108).split(" ").map((p, i) => (i === 0 ? "M" + p : "L" + p)).join(" ") + " Z"} fill="none" stroke="#D8B45E" strokeWidth="1.5" opacity="0.6" />
+          <polygon points={isoFloorQuad(0.08, 0.92, 0.08, 0.92)} fill="none" stroke="#D8B45E" strokeWidth="1" opacity="0.25" />
+          <line x1={top.x} y1={top.y} x2={top.x} y2={top.y + 46} stroke="#D8B45E" strokeWidth="1.5" opacity="0.7" />
+          {[-14, 0, 14].map((dx, i) => (
+            <g key={i}>
+              <line x1={top.x} y1={top.y + 46} x2={top.x + dx} y2={top.y + 70} stroke="#D8B45E" strokeWidth="1.2" opacity="0.6" />
+              <circle className="gemGlint" cx={top.x + dx} cy={top.y + 70} r="4" fill="#F5D77A" style={{ animationDelay: `${i * 0.3}s` }} />
+            </g>
+          ))}
+          <IsoBox a0={0.62} a1={0.76} b0={0.14} b1={0.28} h={46} top="#f0e4b8" right="#8a6c2c" left="#b8983f" />
+          <circle cx={isoPt(0.69, 0.21).x} cy={isoPt(0.69, 0.21).y - 54} r="9" fill="#F5D77A" className="gemGlint" />
+          <IsoBox a0={0.1} a1={0.36} b0={0.58} b1={0.9} h={14} top="#4a2540" right="#2c1626" left="#3a1e33" />
+        </>
+      );
+    default:
+      return (
+        <>
+          <line x1={top.x} y1={top.y} x2={top.x} y2={top.y + 34} stroke="#4a4b55" strokeWidth="1.5" />
+          <circle className="lampFlicker" cx={top.x} cy={top.y + 40} r="6" fill="#F5E7A8" opacity="0.9" />
+          <polygon points={wallQuad("right", 0.3, 0.6, 40, 82)} fill="#3a4550" opacity="0.4" />
+          <polygon points={wallQuad("right", 0.3, 0.6, 40, 82)} fill="none" stroke="#0008" strokeWidth="2" />
+        </>
+      );
+  }
+}
+function RoomScene({ propId }) {
+  const theme = ROOM_THEMES[propId || "none"];
+  const WH = 132;
+  const W = isoPt(0, 0), N = isoPt(1, 0), E = isoPt(1, 1);
+  const GRID = 5;
+  const tiles = [];
+  for (let i = 0; i < GRID; i++) for (let j = 0; j < GRID; j++) {
+    tiles.push(<polygon key={`${i}-${j}`} points={isoFloorQuad(i / GRID, (i + 1) / GRID, j / GRID, (j + 1) / GRID)} fill={(i + j) % 2 === 0 ? theme.floorA : theme.floorB} />);
+  }
+  return (
+    <svg viewBox="0 0 400 320" width="100%" height="100%" preserveAspectRatio="none" style={{ position: "absolute", inset: 0 }}>
+      <polygon points={pStr(W, N, { x: N.x, y: N.y - WH }, { x: W.x, y: W.y - WH })} fill={theme.wallL} />
+      <polygon points={pStr(N, E, { x: E.x, y: E.y - WH }, { x: N.x, y: N.y - WH })} fill={theme.wallR} />
+      <g>{tiles}</g>
+      <polyline points={pStr(W, N, E)} fill="none" stroke={theme.trim} strokeOpacity="0.4" strokeWidth="2" />
+      {furnitureFor(propId)}
+      <polygon points={pStr(W, N, E, isoPt(0, 1))} fill="url(#roomVignette)" opacity="0.35" />
+      <defs>
+        <radialGradient id="roomVignette" cx="50%" cy="15%" r="75%"><stop offset="0%" stopColor="#000" stopOpacity="0" /><stop offset="100%" stopColor="#000" stopOpacity="0.55" /></radialGradient>
+      </defs>
+    </svg>
+  );
+}
+/* ---- Forza-style showroom car ---- */
+const TIER_GLOW = ["#8FE3FF", "#6EA8FF", "#B98CFF", "#FF5C72"];
+function CarShowcase({ tier, size = 150 }) {
+  const glow = TIER_GLOW[tier] ?? "#8FE3FF";
+  return (
+    <div style={{ position: "relative", width: size, height: size * 0.72 }}>
+      <div className="absolute pointer-events-none" style={{ left: "50%", top: "-18%", width: size * 1.5, height: size, transform: "translateX(-50%)", background: `radial-gradient(ellipse at 50% 0%, ${glow}4d, transparent 72%)` }} />
+      {tier >= 2 && [0, 1, 2].map((i) => (
+        <span key={i} className="absolute speedLine pointer-events-none" style={{ right: size * 0.98, top: `${28 + i * 16}%`, width: size * 0.55, height: 2, background: `linear-gradient(90deg, transparent, ${glow}bb)`, animationDelay: `${i * 0.32}s` }} />
+      ))}
+      <div style={{ position: "relative", filter: `drop-shadow(0 0 9px ${glow}70)` }}>
+        <CarFigure tier={tier} size={size} />
+      </div>
+      <div className="absolute pointer-events-none" style={{ left: 0, top: size * 0.46, width: size, transform: "scaleY(-1)", opacity: 0.2, WebkitMaskImage: "linear-gradient(to bottom, rgba(0,0,0,.6), transparent 68%)", maskImage: "linear-gradient(to bottom, rgba(0,0,0,.6), transparent 68%)" }}>
+        <CarFigure tier={tier} size={size} />
+      </div>
+    </div>
+  );
+}
 function CharacterScene({ S, stage, pulse }) {
   const { accent } = useAccent();
   const eq = useMemo(() => resolveEquipped(S.equipped), [S.equipped]);
@@ -450,35 +592,29 @@ function CharacterScene({ S, stage, pulse }) {
   const [poke, setPoke] = useState(false);
   function onPoke() { if (poke || pulse) return; setPoke(true); setTimeout(() => setPoke(false), 480); }
   return (
-    <div ref={ref} {...handlers} className="mx-4 rounded-[28px] relative overflow-hidden" style={{ height: 320, background: "radial-gradient(circle at 50% 20%, #22232F 0%, #0A0A0F 78%)", border: `1px solid ${C.line}`, boxShadow: SHADOW, touchAction: "none" }}>
-      <div className="absolute left-1/2 top-0 -translate-x-1/2 pointer-events-none" style={{ width: 160, height: "82%", background: `linear-gradient(180deg, ${accent}26, transparent 75%)`, clipPath: "polygon(50% 0%, 14% 100%, 86% 100%)" }} />
-      {eq.property && (
-        <div className="absolute inset-x-0 top-6 flex items-center justify-center pointer-events-none" style={{ fontSize: 92, filter: "brightness(0) invert(1) opacity(.13)", transform: `translateX(${t.x * -4}px)`, transition: "transform .18s var(--snap)" }}>
-          {eq.property.emoji}
-          {[0, 1, 2].map((i) => <span key={i} className="absolute rounded-full twinkle2" style={{ left: `${42 + i * 8}%`, top: `${30 + (i % 2) * 22}%`, width: 3, height: 3, background: "#fff", animationDelay: `${i * 0.5}s` }} />)}
-        </div>
-      )}
-      {[0, 1, 2, 3, 4, 5].map((i) => (
-        <span key={i} className="absolute rounded-full sceneMote pointer-events-none" style={{ left: `${8 + i * 16}%`, bottom: 14, width: 3, height: 3, background: accent, animationDelay: `${i * 0.9}s`, animationDuration: `${5 + (i % 3)}s` }} />
+    <div ref={ref} {...handlers} className="mx-4 rounded-[28px] relative overflow-hidden" style={{ height: 320, background: "#0A0A0F", border: `1px solid ${C.line}`, boxShadow: SHADOW, touchAction: "none" }}>
+      <RoomScene propId={eq.property && eq.property.id} />
+      <div className="absolute top-0 pointer-events-none" style={{ left: "38%", width: 130, height: "58%", transform: "translateX(-50%)", background: `linear-gradient(180deg, ${accent}22, transparent 80%)`, clipPath: "polygon(50% 0%, 22% 100%, 78% 100%)" }} />
+      {[0, 1, 2, 3, 4].map((i) => (
+        <span key={i} className="absolute rounded-full sceneMote pointer-events-none" style={{ left: `${10 + i * 20}%`, bottom: 14, width: 3, height: 3, background: accent, animationDelay: `${i * 0.9}s`, animationDuration: `${5 + (i % 3)}s` }} />
       ))}
-      <div className="absolute left-1/2 bottom-7 -translate-x-1/2 rounded-full pointer-events-none" style={{ width: 236, height: 50, border: `1px solid ${C.line}`, background: `radial-gradient(ellipse, ${accent}22, transparent 70%)` }} />
-      <div className="absolute left-1/2 bottom-7 -translate-x-1/2 rounded-full pointer-events-none" style={{ width: 168, height: 34, border: `1px solid ${accent}55` }} />
       <div className="absolute top-3 left-4 px-2.5 py-1 rounded-md text-[11px] font-bold flex items-center gap-1" style={{ background: `linear-gradient(135deg, ${C.surf2}, rgba(0,0,0,.5))`, border: `1px solid ${accent}44`, color: accent, fontFamily: MONO, boxShadow: `0 0 12px ${accent}30` }}>
         <span style={{ fontSize: 9 }}>▲</span>LVL {stage}
       </div>
       {eq.car && (
-        <div key={eq.car.id} className="absolute right-3 bottom-11 carDriveIn" style={{ width: 108 }}>
-          <CarFigure tier={carTierOf(eq.car.id)} size={108} />
+        <div key={eq.car.id} className="absolute carDriveIn" style={{ left: "68%", top: "40%", transform: "translate(-50%,-50%)" }}>
+          <CarShowcase tier={carTierOf(eq.car.id)} size={148} />
         </div>
       )}
-      <div onClick={onPoke} className="absolute inset-0 flex items-end justify-center pb-4" style={{ cursor: "pointer" }}>
+      <div onClick={onPoke} className="absolute" style={{ left: "38%", bottom: 18, transform: "translateX(-50%)", cursor: "pointer" }}>
+        <div className="absolute rounded-full" style={{ left: "50%", bottom: -4, width: 88, height: 18, transform: "translateX(-50%)", background: "radial-gradient(ellipse, rgba(0,0,0,.45), transparent 72%)" }} />
         <CharacterFigure outfit={eq.outfit} headItem={eq.head && eq.head.emoji} aura={eq.aura && eq.aura.style} sidekick={eq.sidekick && eq.sidekick.emoji} tiltX={t.x * 10} tiltY={t.y * 10} pulse={pulse || poke} />
       </div>
       {pulse && (
         <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute rounded-full revealRing" style={{ width: 40, height: 40, border: `2px solid ${accent}`, left: "calc(50% - 20px)", top: "58%" }} />
+          <div className="absolute rounded-full revealRing" style={{ width: 40, height: 40, border: `2px solid ${accent}`, left: "calc(38% - 20px)", top: "58%" }} />
           {[0, 1, 2, 3, 4, 5].map((i) => (
-            <span key={i} className="absolute rounded-full" style={{ width: 5, height: 5, background: accent, left: "calc(50% - 2.5px)", top: "60%", animation: "revealSpark .7s ease-out forwards", animationDelay: `${i * 0.02}s`, ["--ang"]: `${i * 60}deg` }} />
+            <span key={i} className="absolute rounded-full" style={{ width: 5, height: 5, background: accent, left: "calc(38% - 2.5px)", top: "60%", animation: "revealSpark .7s ease-out forwards", animationDelay: `${i * 0.02}s`, ["--ang"]: `${i * 60}deg` }} />
           ))}
         </div>
       )}
@@ -1285,6 +1421,14 @@ function Style() {
       @keyframes revealRing{0%{transform:scale(.3);opacity:.9}100%{transform:scale(7);opacity:0}}
       .revealRing{animation:revealRing .6s ease-out forwards}
       @keyframes revealSpark{0%{transform:rotate(var(--ang)) translateX(0) scale(1);opacity:1}100%{transform:rotate(var(--ang)) translateX(72px) scale(.4);opacity:0}}
+
+      /* ---- isometric room + showroom car ---- */
+      @keyframes speedLine{0%{transform:translateX(0);opacity:0}20%{opacity:.8}100%{transform:translateX(-46px);opacity:0}}
+      .speedLine{animation:speedLine 1.3s var(--soft) infinite}
+      @keyframes lampFlicker{0%,100%{opacity:.85}50%{opacity:1}}
+      .lampFlicker{animation:lampFlicker 2.6s ease-in-out infinite}
+      @keyframes gemGlint{0%,100%{opacity:.6}50%{opacity:1}}
+      .gemGlint{animation:gemGlint 1.8s ease-in-out infinite}
 
       /* ---- motion system: press / hover / focus ---- */
       .press{transition:transform .15s var(--quick)}
