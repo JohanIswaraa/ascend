@@ -14,13 +14,15 @@
 <title>ASCEND</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800;900&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" integrity="sha384-DGyLxAyjq0f9SPpVevD6IgztCFlnMF6oW/XQGmfe+IsZ8TqEiDrcHkMLKI6fiB/Z" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" integrity="sha384-gTGxhz21lVGYNMcdJOyq01Edg0jhn/c22nsx0kyqP0TxaV5WVdsSH1fSDUf5YJj1" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/@babel/standalone@7.29.8/babel.min.js" integrity="sha384-Ux6uBqExf/7ahsSNrA9VI7vuaw6sKjDoVdjdUxmIoL2qdlzFVZ157sTi6JK3Z9Q8" crossorigin="anonymous"></script>
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
-  html, body { margin: 0; height: 100%; background: #0A0A0F; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; background: #0A0A0F; -webkit-tap-highlight-color: transparent;
+    --snap: cubic-bezier(.16,1,.3,1); --spring: cubic-bezier(.34,1.56,.64,1);
+    --soft: cubic-bezier(.45,0,.55,1); --quick: cubic-bezier(.22,1,.36,1); }
   * { -webkit-touch-callout: none; box-sizing: border-box; }
   input, textarea { -webkit-user-select: text; user-select: text; }
   ::selection { background: #7C5CFF; color: #0A0A0F; }
@@ -101,7 +103,7 @@ const C = {
   ink: "#F2F1F7", soft: "#8A8A9B",
   ember: "#FF5C72", gold: "#F5B429", good: "#2ED573",
 };
-const SYS = "-apple-system, 'SF Pro Text', system-ui, sans-serif";
+const SYS = "'Inter', -apple-system, 'SF Pro Text', system-ui, sans-serif";
 const DISPLAY = "'Manrope', -apple-system, system-ui, sans-serif";
 const MONO = "'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace";
 const SHADOW = "0 1px 0 rgba(255,255,255,.04) inset, 0 16px 40px rgba(0,0,0,.55)";
@@ -238,22 +240,56 @@ function useTilt(max = 10) {
   const reset = useCallback(() => setT({ x: 0, y: 0 }), []);
   return { t, max, ref, handlers: { onPointerMove: move, onPointerLeave: reset, onTouchMove: move, onTouchEnd: reset } };
 }
-function useCount(value) {
+function useCount(value, decimals = 0) {
   const [d, setD] = useState(value); const ref = useRef(value);
   useEffect(() => {
     const from = ref.current, to = value; if (from === to) return;
+    const mul = Math.pow(10, decimals);
     const start = performance.now(); let raf;
     const tick = (now) => { const p = Math.min(1, (now - start) / 480); const e = 1 - Math.pow(1 - p, 3);
-      setD(Math.round(from + (to - from) * e)); if (p < 1) raf = requestAnimationFrame(tick); else ref.current = to; };
+      setD(Math.round((from + (to - from) * e) * mul) / mul); if (p < 1) raf = requestAnimationFrame(tick); else ref.current = to; };
     raf = requestAnimationFrame(tick); return () => cancelAnimationFrame(raf);
-  }, [value]);
+  }, [value, decimals]);
   return d;
+}
+function usePriceFlash(price) {
+  const [flash, setFlash] = useState(null);
+  const prevRef = useRef(price);
+  useEffect(() => {
+    const prev = prevRef.current;
+    if (price !== prev) {
+      prevRef.current = price;
+      setFlash(price > prev ? "up" : "down");
+      const t = setTimeout(() => setFlash(null), 550);
+      return () => clearTimeout(t);
+    }
+  }, [price]);
+  return flash;
+}
+function useSheetExit(dismiss) {
+  const [entered, setEntered] = useState(false);
+  const [closing, setClosing] = useState(false);
+  useEffect(() => { const id = requestAnimationFrame(() => setEntered(true)); return () => cancelAnimationFrame(id); }, []);
+  function close(after) {
+    setClosing(true);
+    setTimeout(() => { if (after) after(); else dismiss(); }, 220);
+  }
+  return { show: entered && !closing, close };
 }
 function MiniStat({ label, value }) {
   return (
     <div className="p-2.5 rounded-2xl text-center" style={{ background: C.surf2, border: `1px solid ${C.line}` }}>
       <div className="text-[16px] font-bold" style={{ color: C.ink, fontFamily: MONO }}>{value}</div>
       <div className="text-[9px] uppercase mt-0.5" style={{ color: C.soft, fontFamily: MONO, letterSpacing: "0.03em" }}>{label}</div>
+    </div>
+  );
+}
+function EmptyState({ icon, title, body }) {
+  return (
+    <div className="flex flex-col items-center text-center py-8 px-6 rounded-[22px] mb-2" style={{ background: C.surf, border: `1px dashed ${C.line}` }}>
+      <div className="text-3xl mb-2 opacity-70">{icon}</div>
+      <div className="text-[14px] font-bold mb-1" style={{ color: C.ink, fontFamily: DISPLAY }}>{title}</div>
+      <div className="text-[12px]" style={{ color: C.soft, maxWidth: 220 }}>{body}</div>
     </div>
   );
 }
@@ -443,8 +479,15 @@ function Terra() {
   const [tab, setTab] = useState("today");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [completeTick, setCompleteTick] = useState(0);
+  const [booting, setBooting] = useState(true);
   const stateRef = useRef(S);
   useEffect(() => { stateRef.current = S; }, [S]);
+
+  useEffect(() => {
+    const reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const t = setTimeout(() => setBooting(false), reduced ? 0 : 780);
+    return () => clearTimeout(t);
+  }, []);
 
   useEffect(() => {
     if (!raw.lastDate) return;
@@ -569,7 +612,7 @@ function Terra() {
             {TABS.map(([key, label, Icon]) => {
               const on = tab === key;
               return (
-                <button key={key} onClick={() => setTab(key)} className="relative flex-1 flex flex-col items-center gap-0.5 py-2 active:scale-90 transition-transform">
+                <button key={key} onClick={() => setTab(key)} className="relative flex-1 flex flex-col items-center gap-0.5 py-2 active:scale-90 press">
                   <Icon size={19} color={on ? activeTheme.accent : C.soft} strokeWidth={on ? 2.6 : 2} />
                   <span className="text-[9px] font-bold" style={{ color: on ? activeTheme.accent : C.soft, fontFamily: MONO, letterSpacing: "0.02em" }}>{label}</span>
                 </button>
@@ -579,8 +622,25 @@ function Terra() {
         </nav>
 
         {settingsOpen && <SettingsSheet theme={S.theme} onSelect={selectTheme} onClose={() => setSettingsOpen(false)} />}
+        <BootOverlay show={booting} />
       </div>
     </ThemeCtx.Provider>
+  );
+}
+
+function BootOverlay({ show }) {
+  const { accent } = useAccent();
+  const [visible, setVisible] = useState(true);
+  useEffect(() => { if (!show) { const t = setTimeout(() => setVisible(false), 260); return () => clearTimeout(t); } }, [show]);
+  if (!visible) return null;
+  return (
+    <div className="absolute inset-0 z-50 pointer-events-none overflow-hidden" style={{ background: C.app, opacity: show ? 1 : 0, transition: "opacity .26s var(--snap)" }}>
+      <div className="absolute left-0 right-0 bootScan" style={{ height: 2, background: `linear-gradient(90deg, transparent, ${accent}, transparent)`, boxShadow: `0 0 18px ${accent}` }} />
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bootFade">
+        <span style={{ fontFamily: MONO, fontSize: 13, letterSpacing: "0.35em", color: accent, fontWeight: 700 }}>ISWR</span>
+        <span style={{ fontFamily: DISPLAY, fontSize: 22, fontWeight: 800, color: C.ink, letterSpacing: "-0.01em" }}>ASCEND</span>
+      </div>
+    </div>
   );
 }
 
@@ -588,17 +648,18 @@ function Chip({ children }) {
   return <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[13px] font-bold" style={{ border: `1px solid ${C.line}`, background: C.surf, color: C.ink, fontFamily: MONO }}>{children}</span>;
 }
 function SettingsSheet({ theme, onSelect, onClose }) {
+  const { show, close } = useSheetExit(onClose);
   return (
-    <div className="absolute inset-0 z-30 flex items-end justify-center" style={{ background: "rgba(0,0,0,.6)" }} onClick={onClose}>
-      <div className="w-full rounded-t-[32px] p-5" style={{ background: C.surf, border: `1px solid ${C.line}`, borderBottom: "none" }} onClick={(e) => e.stopPropagation()}>
+    <div className="absolute inset-0 z-30 flex items-end justify-center" style={{ background: `rgba(0,0,0,${show ? 0.6 : 0})`, transition: "background .22s var(--snap)" }} onClick={() => close()}>
+      <div className="w-full rounded-t-[32px] p-5" style={{ background: C.surf, border: `1px solid ${C.line}`, borderBottom: "none", transform: show ? "translateY(0)" : "translateY(28px)", opacity: show ? 1 : 0, transition: "transform .28s var(--snap), opacity .22s var(--snap)" }} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <div className="text-[18px] font-extrabold" style={{ fontFamily: DISPLAY, color: C.ink }}>Settings</div>
-          <button onClick={onClose} style={{ color: C.soft }}><X size={18} /></button>
+          <button onClick={() => close()} style={{ color: C.soft }}><X size={18} /></button>
         </div>
         <div style={lbl} className="mb-3">Accent theme</div>
         <div className="grid grid-cols-5 gap-2">
           {THEMES.map((t) => (
-            <button key={t.id} onClick={() => onSelect(t.id)} className="flex flex-col items-center gap-1.5">
+            <button key={t.id} onClick={() => onSelect(t.id)} className="flex flex-col items-center gap-1.5 hoverLift press">
               <div className="rounded-full" style={{ width: 38, height: 38, background: `linear-gradient(135deg, ${t.accent}, ${t.accent2})`, boxShadow: theme === t.id ? `0 0 0 3px ${C.surf}, 0 0 0 5px ${t.accent}` : "none" }} />
               <span className="text-[9px]" style={{ color: theme === t.id ? t.accent : C.soft, fontFamily: MONO }}>{t.name}</span>
             </button>
@@ -622,6 +683,8 @@ function Today({ S, done, total, energy, rolloverInfo, onDismissRollover, onComp
   const hour = new Date().getHours();
   const greeting = hour < 5 ? "Late night" : hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
   const price = S.stock.price;
+  const shownPrice = useCount(price, 2);
+  const flash = usePriceFlash(price);
   const openPrice = S.stock.history.length ? S.stock.history[S.stock.history.length - 1].price : BASE_PRICE;
   const up = price >= openPrice;
   const changePct = openPrice ? ((price - openPrice) / openPrice) * 100 : 0;
@@ -639,7 +702,7 @@ function Today({ S, done, total, energy, rolloverInfo, onDismissRollover, onComp
         <div className="flex items-center gap-2 mt-1">
           <span className="text-[11px]" style={{ color: C.soft, fontFamily: MONO }}>{prettyDate(S.lastDate)}</span>
           <span className="text-[11px]" style={{ color: C.soft, fontFamily: MONO }}>·</span>
-          <span className="text-[11px] font-bold" style={{ color: up ? C.good : C.ember, fontFamily: MONO }}>ISWR {"$" + price.toFixed(2)} {up ? "▲" : "▼"}{Math.abs(changePct).toFixed(1)}%</span>
+          <span className={"text-[11px] font-bold" + (flash ? " tickFlash" : "")} style={{ color: up ? C.good : C.ember, fontFamily: MONO }}>ISWR {"$" + shownPrice.toFixed(2)} <span className={flash ? "arrowBounce" : ""} style={{ display: "inline-block" }}>{up ? "▲" : "▼"}</span>{Math.abs(changePct).toFixed(1)}%</span>
         </div>
       </div>
 
@@ -652,11 +715,19 @@ function Today({ S, done, total, energy, rolloverInfo, onDismissRollover, onComp
           </div>
         </div>
         {adding && <AddRow onAdd={(n, e) => { onAdd(n, e); setAdding(false); }} onCancel={() => setAdding(false)} />}
-        <div className="flex flex-col gap-2">
-          {S.habits.map((h, i) => <HabitRow key={h.id} h={h} idx={i} count={S.habits.length} editing={editMode}
-            onComplete={onComplete} onRemove={onRemove} onMove={onMoveHabit}
-            onOpenDetail={() => setDetailHabit(h)} onOpenEdit={() => setEditingHabit(h)} />)}
-        </div>
+        {S.habits.length === 0 ? (
+          <EmptyState icon="✓" title="No habits yet" body="Add your first one — every rep starts moving ISWR." />
+        ) : (
+          <div className="flex flex-col gap-2">
+            {S.habits.map((h, i) => (
+              <div key={h.id} className="rowIn" style={{ animationDelay: `${Math.min(i, 6) * 40}ms` }}>
+                <HabitRow h={h} idx={i} count={S.habits.length} editing={editMode}
+                  onComplete={onComplete} onRemove={onRemove} onMove={onMoveHabit}
+                  onOpenDetail={() => setDetailHabit(h)} onOpenEdit={() => setEditingHabit(h)} />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="px-4 mt-6">
@@ -672,14 +743,17 @@ function Today({ S, done, total, energy, rolloverInfo, onDismissRollover, onComp
 }
 
 function RolloverToast({ info, onDismiss }) {
-  useEffect(() => { const id = setTimeout(onDismiss, 6000); return () => clearTimeout(id); }, []);
+  const [show, setShow] = useState(false);
+  useEffect(() => { const id = requestAnimationFrame(() => setShow(true)); return () => cancelAnimationFrame(id); }, []);
+  function dismiss() { setShow(false); setTimeout(onDismiss, 220); }
+  useEffect(() => { const id = setTimeout(dismiss, 6000); return () => clearTimeout(id); }, []);
   const priceLine = ` ISWR closed $${info.price.toFixed(2)}.`;
   const msg = (info.multi
     ? `Welcome back — ${info.days} day${info.days === 1 ? "" : "s"} passed while you were away.`
     : info.streakBroken ? "Streak reset — yesterday went untended."
     : `Yesterday: ${info.done}/${info.total} tended.`) + priceLine;
   return (
-    <div onClick={onDismiss} className="mb-2 px-4 py-3 rounded-2xl flex items-center gap-2.5 active:scale-[0.98] transition-transform" style={{ background: C.surf2, border: `1px solid ${C.line}` }}>
+    <div onClick={dismiss} className="mb-2 px-4 py-3 rounded-2xl flex items-center gap-2.5 active:scale-[0.98] press" style={{ background: C.surf2, border: `1px solid ${C.line}`, transform: show ? "translateY(0)" : "translateY(-16px)", opacity: show ? 1 : 0, transition: "transform .3s var(--snap), opacity .24s var(--snap)" }}>
       <span className="text-[16px]">{info.streakBroken ? "💤" : "🔔"}</span>
       <span className="text-[12.5px] flex-1" style={{ color: C.ink }}>{msg}</span>
     </div>
@@ -714,7 +788,7 @@ function HabitRow({ h, idx, count, editing, onComplete, onRemove, onMove, onOpen
       ) : (
         <>
           <button onClick={() => onRemove(h.id)} className="p-1.5" style={{ color: "#44444F" }} aria-label="Remove"><Trash2 size={14} /></button>
-          <button onClick={tap} disabled={h.doneToday} className="relative flex items-center justify-center rounded-2xl active:scale-90 transition-transform"
+          <button onClick={tap} disabled={h.doneToday} className="relative flex items-center justify-center rounded-2xl active:scale-90 press hoverLift"
             style={{ width: 46, height: 46, background: h.doneToday ? C.good : accent, color: C.app }} aria-label="Complete">
             <Check size={21} strokeWidth={3} className={burst ? "checkpop" : ""} />
           </button>
@@ -730,37 +804,48 @@ function HabitRow({ h, idx, count, editing, onComplete, onRemove, onMove, onOpen
 function AddRow({ onAdd, onCancel }) {
   const { accent } = useAccent();
   const [name, setName] = useState(""); const [emoji, setEmoji] = useState("✨");
+  const [shake, setShake] = useState(false);
+  function trySave() {
+    if (!name.trim()) { setShake(true); setTimeout(() => setShake(false), 420); return; }
+    onAdd(name, emoji);
+  }
   return (
     <div className="p-3 rounded-[22px] mb-2" style={{ background: C.surf, border: `1px solid ${C.line}`, boxShadow: SHADOW }}>
-      <div className="flex gap-1.5 mb-2 flex-wrap">{EMOJIS.map((e) => <button key={e} onClick={() => setEmoji(e)} className="text-lg rounded-xl active:scale-90 transition-transform" style={{ width: 32, height: 32, background: emoji === e ? C.surf2 : "transparent", border: emoji === e ? `1px solid ${accent}` : "1px solid transparent" }}>{e}</button>)}</div>
+      <div className="flex gap-1.5 mb-2 flex-wrap">{EMOJIS.map((e) => <button key={e} onClick={() => setEmoji(e)} className="text-lg rounded-xl active:scale-90 transition-transform press" style={{ width: 32, height: 32, background: emoji === e ? C.surf2 : "transparent", border: emoji === e ? `1px solid ${accent}` : "1px solid transparent" }}>{e}</button>)}</div>
       <div className="flex gap-2">
-        <input autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && onAdd(name, emoji)} placeholder="New habit…" className="flex-1 px-3 py-2 rounded-xl text-[14px] outline-none" style={{ background: C.surf2, color: C.ink, border: `1px solid ${C.line}` }} />
-        <button onClick={() => onAdd(name, emoji)} className="px-3 rounded-xl font-semibold text-[13px] uppercase" style={{ background: accent, color: C.app, fontFamily: MONO }}>Save</button>
-        <button onClick={onCancel} className="px-2 rounded-xl" style={{ color: "#5C5F6E" }}><X size={18} /></button>
+        <input autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && trySave()} placeholder="New habit…" className={"flex-1 px-3 py-2 rounded-xl text-[14px] outline-none focusRing" + (shake ? " shake" : "")} style={{ background: C.surf2, color: C.ink, border: `1px solid ${shake ? C.ember : C.line}` }} />
+        <button onClick={trySave} className="px-3 rounded-xl font-semibold text-[13px] uppercase hoverLift press" style={{ background: accent, color: C.app, fontFamily: MONO }}>Save</button>
+        <button onClick={onCancel} className="px-2 rounded-xl press" style={{ color: "#5C5F6E" }}><X size={18} /></button>
       </div>
     </div>
   );
 }
 function EditHabitSheet({ habit, onSave, onCancel }) {
   const { accent } = useAccent();
+  const { show, close } = useSheetExit(onCancel);
   const [name, setName] = useState(habit.name);
   const [emoji, setEmoji] = useState(habit.emoji);
   const [difficulty, setDifficulty] = useState(habit.difficulty || "standard");
+  const [shake, setShake] = useState(false);
+  function trySave() {
+    if (!name.trim()) { setShake(true); setTimeout(() => setShake(false), 420); return; }
+    close(() => onSave({ name: name.trim(), emoji, difficulty }));
+  }
   return (
-    <div className="absolute inset-0 z-30 flex items-end justify-center" style={{ background: "rgba(0,0,0,.6)" }} onClick={onCancel}>
-      <div className="w-full rounded-t-[32px] p-5" style={{ background: C.surf, border: `1px solid ${C.line}`, borderBottom: "none" }} onClick={(e) => e.stopPropagation()}>
+    <div className="absolute inset-0 z-30 flex items-end justify-center" style={{ background: `rgba(0,0,0,${show ? 0.6 : 0})`, transition: "background .22s var(--snap)" }} onClick={() => close()}>
+      <div className="w-full rounded-t-[32px] p-5" style={{ background: C.surf, border: `1px solid ${C.line}`, borderBottom: "none", transform: show ? "translateY(0)" : "translateY(28px)", opacity: show ? 1 : 0, transition: "transform .28s var(--snap), opacity .22s var(--snap)" }} onClick={(e) => e.stopPropagation()}>
         <div style={lbl} className="mb-3">Edit habit</div>
-        <div className="flex gap-1.5 mb-3 flex-wrap">{EMOJIS.map((e) => <button key={e} onClick={() => setEmoji(e)} className="text-lg rounded-xl active:scale-90 transition-transform" style={{ width: 32, height: 32, background: emoji === e ? C.surf2 : "transparent", border: emoji === e ? `1px solid ${accent}` : "1px solid transparent" }}>{e}</button>)}</div>
-        <input value={name} onChange={(e) => setName(e.target.value)} className="w-full px-3.5 py-2.5 rounded-xl text-[14px] outline-none mb-3" style={{ background: C.surf2, color: C.ink, border: `1px solid ${C.line}` }} />
+        <div className="flex gap-1.5 mb-3 flex-wrap">{EMOJIS.map((e) => <button key={e} onClick={() => setEmoji(e)} className="text-lg rounded-xl active:scale-90 transition-transform press" style={{ width: 32, height: 32, background: emoji === e ? C.surf2 : "transparent", border: emoji === e ? `1px solid ${accent}` : "1px solid transparent" }}>{e}</button>)}</div>
+        <input value={name} onChange={(e) => setName(e.target.value)} className={"w-full px-3.5 py-2.5 rounded-xl text-[14px] outline-none mb-3 focusRing" + (shake ? " shake" : "")} style={{ background: C.surf2, color: C.ink, border: `1px solid ${shake ? C.ember : C.line}` }} />
         <div style={lbl} className="mb-2">Difficulty</div>
         <div className="flex gap-2 mb-4">
           {["light", "standard", "hard"].map((d) => (
-            <button key={d} onClick={() => setDifficulty(d)} className="flex-1 py-2 rounded-xl text-[12px] font-bold uppercase" style={{ background: difficulty === d ? accent : C.surf2, color: difficulty === d ? C.app : C.soft, border: `1px solid ${C.line}`, fontFamily: MONO }}>{d}</button>
+            <button key={d} onClick={() => setDifficulty(d)} className="flex-1 py-2 rounded-xl text-[12px] font-bold uppercase hoverLift press" style={{ background: difficulty === d ? accent : C.surf2, color: difficulty === d ? C.app : C.soft, border: `1px solid ${C.line}`, fontFamily: MONO }}>{d}</button>
           ))}
         </div>
         <div className="flex gap-2">
-          <button onClick={onCancel} className="flex-1 py-3 rounded-xl font-bold text-[13px] uppercase" style={{ background: C.surf2, color: C.soft, border: `1px solid ${C.line}`, fontFamily: MONO }}>Cancel</button>
-          <button onClick={() => name.trim() && onSave({ name: name.trim(), emoji, difficulty })} className="flex-1 py-3 rounded-xl font-bold text-[13px] uppercase" style={{ background: accent, color: C.app, fontFamily: MONO }}>Save</button>
+          <button onClick={() => close()} className="flex-1 py-3 rounded-xl font-bold text-[13px] uppercase hoverLift press" style={{ background: C.surf2, color: C.soft, border: `1px solid ${C.line}`, fontFamily: MONO }}>Cancel</button>
+          <button onClick={trySave} className="flex-1 py-3 rounded-xl font-bold text-[13px] uppercase hoverLift press" style={{ background: accent, color: C.app, fontFamily: MONO }}>Save</button>
         </div>
         <div style={{ height: "env(safe-area-inset-bottom)" }} />
       </div>
@@ -771,16 +856,17 @@ function HabitDetail({ habit, onClose }) {
   const dates = useMemo(() => lastNDates(35), []);
   const set = useMemo(() => { const s = new Set(habit.log || []); if (habit.doneToday) s.add(todayStr()); return s; }, [habit.log, habit.doneToday]);
   const { accent } = useAccent();
+  const { show, close } = useSheetExit(onClose);
   return (
-    <div className="absolute inset-0 z-30 flex items-end justify-center" style={{ background: "rgba(0,0,0,.6)" }} onClick={onClose}>
-      <div className="w-full rounded-t-[32px] p-5" style={{ background: C.surf, border: `1px solid ${C.line}`, borderBottom: "none", maxHeight: "80vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+    <div className="absolute inset-0 z-30 flex items-end justify-center" style={{ background: `rgba(0,0,0,${show ? 0.6 : 0})`, transition: "background .22s var(--snap)" }} onClick={() => close()}>
+      <div className="w-full rounded-t-[32px] p-5" style={{ background: C.surf, border: `1px solid ${C.line}`, borderBottom: "none", maxHeight: "80vh", overflowY: "auto", transform: show ? "translateY(0)" : "translateY(28px)", opacity: show ? 1 : 0, transition: "transform .28s var(--snap), opacity .22s var(--snap)" }} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-3 mb-4">
           <div className="flex items-center justify-center rounded-2xl text-2xl" style={{ width: 52, height: 52, background: C.surf2 }}>{habit.emoji}</div>
           <div className="flex-1">
             <div className="text-[17px] font-semibold" style={{ color: C.ink }}>{habit.name}</div>
             <DifficultyTag difficulty={habit.difficulty || "standard"} />
           </div>
-          <button onClick={onClose} style={{ color: C.soft }}><X size={18} /></button>
+          <button onClick={() => close()} style={{ color: C.soft }}><X size={18} /></button>
         </div>
         <div className="grid grid-cols-3 gap-2 mb-4">
           <MiniStat label="Streak" value={`${habit.streak}d`} />
@@ -821,34 +907,41 @@ function AssetCard({ asset, onOpen }) {
 function AddAssetRow({ onAdd, onCancel }) {
   const { accent } = useAccent();
   const [name, setName] = useState(""); const [emoji, setEmoji] = useState("💰"); const [prefix, setPrefix] = useState("$");
+  const [shake, setShake] = useState(false);
+  function tryCreate() {
+    if (!name.trim()) { setShake(true); setTimeout(() => setShake(false), 420); return; }
+    onAdd(name, emoji, prefix);
+  }
   return (
     <div className="p-3 rounded-[22px] mb-3" style={{ background: C.surf, border: `1px solid ${C.line}`, boxShadow: SHADOW }}>
-      <div className="flex gap-1.5 mb-2 flex-wrap">{ASSET_ICONS.map((e) => <button key={e} onClick={() => setEmoji(e)} className="text-lg rounded-xl active:scale-90 transition-transform" style={{ width: 32, height: 32, background: emoji === e ? C.surf2 : "transparent", border: emoji === e ? `1px solid ${accent}` : "1px solid transparent" }}>{e}</button>)}</div>
-      <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Name it (e.g. Savings, Debt, Weight)" className="w-full px-3 py-2 rounded-xl text-[14px] outline-none mb-2" style={{ background: C.surf2, color: C.ink, border: `1px solid ${C.line}` }} />
+      <div className="flex gap-1.5 mb-2 flex-wrap">{ASSET_ICONS.map((e) => <button key={e} onClick={() => setEmoji(e)} className="text-lg rounded-xl active:scale-90 transition-transform press" style={{ width: 32, height: 32, background: emoji === e ? C.surf2 : "transparent", border: emoji === e ? `1px solid ${accent}` : "1px solid transparent" }}>{e}</button>)}</div>
+      <input autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && tryCreate()} placeholder="Name it (e.g. Savings, Debt, Weight)" className={"w-full px-3 py-2 rounded-xl text-[14px] outline-none mb-2 focusRing" + (shake ? " shake" : "")} style={{ background: C.surf2, color: C.ink, border: `1px solid ${shake ? C.ember : C.line}` }} />
       <div className="flex gap-2 mb-2">
         {["$", "#"].map((p) => (
-          <button key={p} onClick={() => setPrefix(p)} className="flex-1 py-2 rounded-xl text-[12px] font-bold uppercase" style={{ background: prefix === p ? accent : C.surf2, color: prefix === p ? C.app : C.soft, border: `1px solid ${C.line}`, fontFamily: MONO }}>{p === "$" ? "$ Dollars" : "# Plain number"}</button>
+          <button key={p} onClick={() => setPrefix(p)} className="flex-1 py-2 rounded-xl text-[12px] font-bold uppercase hoverLift press" style={{ background: prefix === p ? accent : C.surf2, color: prefix === p ? C.app : C.soft, border: `1px solid ${C.line}`, fontFamily: MONO }}>{p === "$" ? "$ Dollars" : "# Plain number"}</button>
         ))}
       </div>
       <div className="flex gap-2">
-        <button onClick={() => { onAdd(name, emoji, prefix); }} className="flex-1 py-2.5 rounded-xl font-semibold text-[13px] uppercase" style={{ background: accent, color: C.app, fontFamily: MONO }}>Create</button>
-        <button onClick={onCancel} className="px-3 rounded-xl" style={{ color: "#5C5F6E" }}><X size={18} /></button>
+        <button onClick={tryCreate} className="flex-1 py-2.5 rounded-xl font-semibold text-[13px] uppercase hoverLift press" style={{ background: accent, color: C.app, fontFamily: MONO }}>Create</button>
+        <button onClick={onCancel} className="px-3 rounded-xl press" style={{ color: "#5C5F6E" }}><X size={18} /></button>
       </div>
     </div>
   );
 }
 function AssetDetail({ asset, onClose, onLog, onDelete }) {
   const { accent } = useAccent();
+  const { show, close } = useSheetExit(onClose);
   const [amt, setAmt] = useState("");
   const [note, setNote] = useState("");
   const [sign, setSign] = useState(1);
   const [flash, setFlash] = useState(null);
   const [flyNum, setFlyNum] = useState(null);
+  const [invalid, setInvalid] = useState(false);
   const shown = useCount(asset.value);
   const series = useMemo(() => assetSeries(asset), [asset.history, asset.value]);
   function submit() {
     const n = Math.abs(Number(amt));
-    if (!n) return;
+    if (!n) { setInvalid(true); setTimeout(() => setInvalid(false), 420); return; }
     const delta = sign * n;
     onLog(asset.id, delta, note.trim());
     setFlash(sign > 0 ? "up" : "down");
@@ -858,13 +951,13 @@ function AssetDetail({ asset, onClose, onLog, onDelete }) {
     setAmt(""); setNote("");
   }
   return (
-    <div className="absolute inset-0 z-30 flex items-end justify-center" style={{ background: "rgba(0,0,0,.6)" }} onClick={onClose}>
-      <div className="w-full rounded-t-[32px] p-5" style={{ background: C.surf, border: `1px solid ${C.line}`, borderBottom: "none", maxHeight: "85vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+    <div className="absolute inset-0 z-30 flex items-end justify-center" style={{ background: `rgba(0,0,0,${show ? 0.6 : 0})`, transition: "background .22s var(--snap)" }} onClick={() => close()}>
+      <div className="w-full rounded-t-[32px] p-5" style={{ background: C.surf, border: `1px solid ${C.line}`, borderBottom: "none", maxHeight: "85vh", overflowY: "auto", transform: show ? "translateY(0)" : "translateY(28px)", opacity: show ? 1 : 0, transition: "transform .28s var(--snap), opacity .22s var(--snap)" }} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-3 mb-4">
           <div className="flex items-center justify-center rounded-2xl text-2xl" style={{ width: 52, height: 52, background: C.surf2 }}>{asset.emoji}</div>
           <div className="flex-1 text-[17px] font-semibold" style={{ color: C.ink }}>{asset.name}</div>
-          <button onClick={() => onDelete(asset.id)} className="p-1.5" style={{ color: C.ember }}><Trash2 size={16} /></button>
-          <button onClick={onClose} style={{ color: C.soft }}><X size={18} /></button>
+          <button onClick={() => close(() => onDelete(asset.id))} className="p-1.5" style={{ color: C.ember }}><Trash2 size={16} /></button>
+          <button onClick={() => close()} style={{ color: C.soft }}><X size={18} /></button>
         </div>
 
         <div className="relative rounded-[24px] p-5 mb-4 text-center overflow-hidden" style={{ background: C.surf2, border: `1px solid ${flash === "up" ? C.good : flash === "down" ? C.ember : C.line}`, transition: "border-color .3s" }}>
@@ -875,13 +968,13 @@ function AssetDetail({ asset, onClose, onLog, onDelete }) {
         <div className="mb-4"><TrendLine points={series} /></div>
 
         <div className="flex gap-2 mb-2">
-          <button onClick={() => setSign(1)} className="w-11 rounded-xl font-bold text-[18px]" style={{ background: sign === 1 ? C.good : C.surf2, color: sign === 1 ? C.app : C.soft }}>+</button>
-          <button onClick={() => setSign(-1)} className="w-11 rounded-xl font-bold text-[18px]" style={{ background: sign === -1 ? C.ember : C.surf2, color: sign === -1 ? C.app : C.soft }}>−</button>
-          <input type="number" value={amt} onChange={(e) => setAmt(e.target.value)} placeholder="Amount" className="flex-1 px-3.5 py-2.5 rounded-xl text-[14px] outline-none" style={{ background: C.surf2, color: C.ink, border: `1px solid ${C.line}` }} />
+          <button onClick={() => setSign(1)} className="w-11 rounded-xl font-bold text-[18px] hoverLift press" style={{ background: sign === 1 ? C.good : C.surf2, color: sign === 1 ? C.app : C.soft }}>+</button>
+          <button onClick={() => setSign(-1)} className="w-11 rounded-xl font-bold text-[18px] hoverLift press" style={{ background: sign === -1 ? C.ember : C.surf2, color: sign === -1 ? C.app : C.soft }}>−</button>
+          <input type="number" value={amt} onChange={(e) => setAmt(e.target.value)} placeholder="Amount" className={"flex-1 px-3.5 py-2.5 rounded-xl text-[14px] outline-none focusRing" + (invalid ? " shake" : "")} style={{ background: C.surf2, color: C.ink, border: `1px solid ${invalid ? C.ember : C.line}` }} />
         </div>
-        <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note (optional)" className="w-full px-3.5 py-2.5 rounded-xl text-[13px] outline-none mb-2" style={{ background: C.surf2, color: C.ink, border: `1px solid ${C.line}` }} />
-        <button onClick={submit} className="w-full py-3 rounded-xl font-bold text-[13px] uppercase" style={{ background: accent, color: C.app, fontFamily: MONO }}>Log entry</button>
-        <div className="text-[10px] text-center mt-2" style={{ color: C.soft, fontFamily: MONO }}>Gains lift ISWR, losses dip it — just like a day tended</div>
+        <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note (optional)" className="w-full px-3.5 py-2.5 rounded-xl text-[13px] outline-none mb-2 focusRing" style={{ background: C.surf2, color: C.ink, border: `1px solid ${C.line}` }} />
+        <button onClick={submit} className="w-full py-3 rounded-xl font-bold text-[13px] uppercase hoverLift press" style={{ background: accent, color: C.app, fontFamily: MONO }}>Log entry</button>
+        <div className="text-[10px] text-center mt-2" style={{ color: invalid ? C.ember : C.soft, fontFamily: MONO }}>{invalid ? "Enter an amount first" : "Gains lift ISWR, losses dip it — just like a day tended"}</div>
 
         {asset.history.length > 0 && <>
           <div style={lbl} className="mt-5 mb-2">History</div>
@@ -914,10 +1007,18 @@ function Assets({ S, onAddAsset, onRemoveAsset, onLog }) {
         <div className="text-[13px] mt-0.5" style={{ color: C.soft }}>Track anything that compounds — every gain feeds ISWR too.</div>
       </div>
       {adding && <AddAssetRow onAdd={(n, e, p) => { onAddAsset(n, e, p); setAdding(false); }} onCancel={() => setAdding(false)} />}
-      <div className="flex flex-col gap-2 mb-3">
-        {S.assets.map((a) => <AssetCard key={a.id} asset={a} onOpen={() => setOpenAsset(a)} />)}
-      </div>
-      <button onClick={() => setAdding(true)} className="w-full py-3 rounded-2xl flex items-center justify-center gap-1.5 font-bold text-[13px] uppercase" style={{ background: C.surf, border: `1px solid ${C.line}`, color: accent, fontFamily: MONO }}><Plus size={15} /> New tracker</button>
+      {S.assets.length === 0 ? (
+        <EmptyState icon="📊" title="Nothing tracked yet" body="Add a tracker for anything that compounds — savings, weight, debt." />
+      ) : (
+        <div className="flex flex-col gap-2 mb-3">
+          {S.assets.map((a, i) => (
+            <div key={a.id} className="rowIn" style={{ animationDelay: `${Math.min(i, 6) * 40}ms` }}>
+              <AssetCard asset={a} onOpen={() => setOpenAsset(a)} />
+            </div>
+          ))}
+        </div>
+      )}
+      <button onClick={() => setAdding(true)} className="w-full py-3 rounded-2xl flex items-center justify-center gap-1.5 font-bold text-[13px] uppercase hoverLift press" style={{ background: C.surf, border: `1px solid ${C.line}`, color: accent, fontFamily: MONO }}><Plus size={15} /> New tracker</button>
       {live && <AssetDetail asset={live} onClose={() => setOpenAsset(null)} onLog={onLog} onDelete={(id) => { onRemoveAsset(id); setOpenAsset(null); }} />}
     </div>
   );
@@ -929,7 +1030,10 @@ function Assets({ S, onAddAsset, onRemoveAsset, onLog }) {
 function Market({ S, onBuyShares, onSellShares }) {
   const { accent } = useAccent();
   const [amt, setAmt] = useState(""); const [mode, setMode] = useState("buy");
+  const [err, setErr] = useState(""); const [confirm, setConfirm] = useState(false);
   const price = S.stock.price, shares = S.stock.shares;
+  const shownPrice = useCount(price, 2);
+  const flash = usePriceFlash(price);
   const openPrice = S.stock.history.length ? S.stock.history[S.stock.history.length - 1].price : BASE_PRICE;
   const change = price - openPrice;
   const changePct = openPrice ? (change / openPrice) * 100 : 0;
@@ -941,20 +1045,29 @@ function Market({ S, onBuyShares, onSellShares }) {
   const athPrice = Math.max(BASE_PRICE, price, ...S.stock.history.map((h) => h.price));
   const totalChangePct = ((price / BASE_PRICE) - 1) * 100;
   const portfolioValue = shares * price;
+  function submit() {
+    const n = Number(amt);
+    if (!n || n <= 0) { setErr("Enter an amount"); setTimeout(() => setErr(""), 1600); return; }
+    if (mode === "buy" && n > S.cash) { setErr(`You only have $${Math.round(S.cash)} to invest`); setTimeout(() => setErr(""), 2000); return; }
+    if (mode === "sell" && n > shares) { setErr(`You only hold ${shares.toFixed(3)} shares`); setTimeout(() => setErr(""), 2000); return; }
+    if (mode === "buy") onBuyShares(n); else onSellShares(n);
+    setAmt(""); setConfirm(true); setTimeout(() => setConfirm(false), 900);
+  }
   return (
     <div className="px-4 pb-6 pt-2">
       <div className="px-2 mb-3"><div className="text-[25px] font-extrabold" style={{ color: C.ink, fontFamily: DISPLAY, letterSpacing: "-0.02em" }}>Market</div></div>
 
       <div className="rounded-[28px] p-5 relative overflow-hidden mb-4" style={{ background: C.surf, border: `1px solid ${C.line}`, boxShadow: SHADOW }}>
         <div className="absolute -top-24 -right-16 rounded-full pointer-events-none" style={{ width: 220, height: 220, background: up ? C.good : C.ember, opacity: 0.14, filter: "blur(54px)" }} />
+        <div className="absolute inset-0 pointer-events-none" style={{ background: flash === "up" ? "rgba(46,213,115,.10)" : flash === "down" ? "rgba(255,92,114,.10)" : "transparent", transition: "background .5s var(--quick)" }} />
         <div className="relative">
           <div className="flex items-center gap-2">
             <span className="px-2 py-0.5 rounded-md text-[11px] font-bold" style={{ background: C.surf2, color: up ? C.good : C.ember, fontFamily: MONO }}>ISWR</span>
             <span className="text-[12px]" style={{ color: C.soft }}>Iswara Capital</span>
           </div>
-          <div className="text-[32px] font-black mt-1" style={{ fontFamily: DISPLAY, color: C.ink, letterSpacing: "-0.02em" }}>{"$" + price.toFixed(2)}</div>
-          <div className="flex items-center gap-1 text-[13px] font-bold" style={{ color: up ? C.good : C.ember, fontFamily: MONO }}>
-            <span>{up ? "▲" : "▼"}</span>
+          <div className="text-[40px] font-black mt-1 leading-none" style={{ fontFamily: DISPLAY, color: C.ink, letterSpacing: "-0.02em" }}>{"$" + shownPrice.toFixed(2)}</div>
+          <div className="flex items-center gap-1 text-[13px] font-bold mt-1" style={{ color: up ? C.good : C.ember, fontFamily: MONO }}>
+            <span className={flash ? "arrowBounce" : ""} style={{ display: "inline-block" }}>{up ? "▲" : "▼"}</span>
             <span>{(up ? "+" : "") + change.toFixed(2) + " (" + (up ? "+" : "") + changePct.toFixed(1) + "%)"}</span>
             <span className="ml-1" style={{ color: C.soft, fontWeight: 500 }}>today</span>
           </div>
@@ -968,19 +1081,20 @@ function Market({ S, onBuyShares, onSellShares }) {
       </div>
 
       <div className="p-5 rounded-[26px] mb-4 text-center relative overflow-hidden" style={{ background: `linear-gradient(135deg, ${accent}, ${accent}55)`, boxShadow: SHADOW, border: `1px solid ${C.line}` }}>
+        {confirm && <div className="absolute inset-0 flex items-center justify-center confirmFlash" style={{ background: "rgba(255,255,255,.22)" }}><Check size={28} color={C.app} strokeWidth={3} /></div>}
         <div className="text-[11px] font-semibold tracking-wide uppercase relative" style={{ color: "rgba(10,10,15,.7)", fontFamily: MONO }}>Your Position</div>
         <div className="text-4xl font-black my-1 relative" style={{ color: C.app, letterSpacing: "-1px", fontFamily: DISPLAY }}>{"$" + portfolioValue.toFixed(2)}</div>
         <div className="text-[12px] relative" style={{ color: "rgba(10,10,15,.75)", fontFamily: MONO }}>{shares.toFixed(3)} shares @ {"$" + price.toFixed(2)}</div>
       </div>
       <div className="flex gap-2 mb-3">
-        <button onClick={() => setMode("buy")} className="flex-1 py-2 rounded-xl text-[12.5px] font-bold uppercase" style={{ background: mode === "buy" ? C.good : C.surf2, color: mode === "buy" ? C.app : C.soft, fontFamily: MONO }}>Buy</button>
-        <button onClick={() => setMode("sell")} className="flex-1 py-2 rounded-xl text-[12.5px] font-bold uppercase" style={{ background: mode === "sell" ? C.ember : C.surf2, color: mode === "sell" ? C.app : C.soft, fontFamily: MONO }}>Sell</button>
+        <button onClick={() => { setMode("buy"); setErr(""); }} className="flex-1 py-2 rounded-xl text-[12.5px] font-bold uppercase hoverLift press" style={{ background: mode === "buy" ? C.good : C.surf2, color: mode === "buy" ? C.app : C.soft, fontFamily: MONO }}>Buy</button>
+        <button onClick={() => { setMode("sell"); setErr(""); }} disabled={shares <= 0} className="flex-1 py-2 rounded-xl text-[12.5px] font-bold uppercase hoverLift press" style={{ background: mode === "sell" ? C.ember : C.surf2, color: shares <= 0 ? "#4A4A55" : mode === "sell" ? C.app : C.soft, fontFamily: MONO }}>Sell</button>
       </div>
       <div className="flex gap-2 mb-1.5">
-        <input type="number" value={amt} onChange={(e) => setAmt(e.target.value)} placeholder={mode === "buy" ? `Cash to invest (have $${Math.round(S.cash)})` : `Shares to sell (have ${shares.toFixed(3)})`} className="flex-1 px-3.5 py-2.5 rounded-xl text-[14px] outline-none" style={{ background: C.surf2, color: C.ink, border: `1px solid ${C.line}` }} />
-        <button onClick={() => { const n = Number(amt); if (!n || n <= 0) return; if (mode === "buy") onBuyShares(n); else onSellShares(n); setAmt(""); }} className="px-4 rounded-xl font-bold text-[13px] uppercase active:scale-95 transition-transform" style={{ background: accent, color: C.app, fontFamily: MONO }}>{mode === "buy" ? "Buy" : "Sell"}</button>
+        <input type="number" value={amt} onChange={(e) => setAmt(e.target.value)} placeholder={mode === "buy" ? `Cash to invest (have $${Math.round(S.cash)})` : `Shares to sell (have ${shares.toFixed(3)})`} className={"flex-1 px-3.5 py-2.5 rounded-xl text-[14px] outline-none focusRing" + (err ? " shake" : "")} style={{ background: C.surf2, color: C.ink, border: `1px solid ${err ? C.ember : C.line}` }} />
+        <button onClick={submit} className="px-4 rounded-xl font-bold text-[13px] uppercase hoverLift press" style={{ background: accent, color: C.app, fontFamily: MONO }}>{mode === "buy" ? "Buy" : "Sell"}</button>
       </div>
-      <div className="text-[11px] text-center" style={{ color: C.soft, fontFamily: MONO }}>{mode === "buy" ? `≈ ${(Number(amt || 0) / price).toFixed(3)} shares at $${price.toFixed(2)}` : `≈ $${(Number(amt || 0) * price).toFixed(2)} at $${price.toFixed(2)}/share`}</div>
+      <div className="text-[11px] text-center" style={{ color: err ? C.ember : C.soft, fontFamily: MONO }}>{err || (mode === "buy" ? `≈ ${(Number(amt || 0) / price).toFixed(3)} shares at $${price.toFixed(2)}` : `≈ $${(Number(amt || 0) * price).toFixed(2)} at $${price.toFixed(2)}/share`)}</div>
     </div>
   );
 }
@@ -1037,7 +1151,7 @@ function Character({ S, totalDone, onBuyItem, onEquipItem }) {
           <span className="text-[14px] font-extrabold" style={{ fontFamily: DISPLAY, color: C.ink }}>Level {stage}</span>
           <span className="text-[11px]" style={{ color: C.soft, fontFamily: MONO }}>{S.itemsOwned.length} items owned</span>
         </div>
-        <div className="h-1.5 rounded-full overflow-hidden" style={{ background: C.surf2 }}><div className="h-full" style={{ width: `${progress * 100}%`, background: `linear-gradient(90deg, ${accent}, ${accent2})` }} /></div>
+        <div className="h-1.5 rounded-full overflow-hidden" style={{ background: C.surf2 }}><div className="h-full w-full origin-left" style={{ transform: `scaleX(${progress})`, transition: "transform .5s var(--snap)", background: `linear-gradient(90deg, ${accent}, ${accent2})` }} /></div>
         <div className="text-[10px] mt-1" style={{ color: C.soft, fontFamily: MONO }}>{next != null ? `${next - totalDone} reps to level up` : "Max level reached"}</div>
       </div>
       {SLOTS.map((slot) => <SlotSection key={slot} slot={slot} S={S} onBuy={(item) => act(() => onBuyItem(item))} onEquip={(slot2, id) => act(() => onEquipItem(slot2, id))} />)}
@@ -1157,6 +1271,38 @@ function Style() {
       @keyframes revealRing{0%{transform:scale(.3);opacity:.9}100%{transform:scale(7);opacity:0}}
       .revealRing{animation:revealRing .6s ease-out forwards}
       @keyframes revealSpark{0%{transform:rotate(var(--ang)) translateX(0) scale(1);opacity:1}100%{transform:rotate(var(--ang)) translateX(72px) scale(.4);opacity:0}}
+
+      /* ---- motion system: press / hover / focus ---- */
+      .press{transition:transform .15s var(--quick)}
+      .hoverLift{transition:transform .18s var(--snap), border-color .18s var(--snap), filter .18s var(--snap)}
+      @media (hover:hover){ .hoverLift:hover{transform:translateY(-2px); filter:brightness(1.06)} }
+      .focusRing{transition:border-color .15s var(--quick), box-shadow .15s var(--quick)}
+      .focusRing:focus{box-shadow:0 0 0 3px rgba(124,92,255,.28)}
+
+      /* ---- validation shake ---- */
+      @keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-6px)}40%{transform:translateX(5px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}
+      .shake{animation:shake .42s var(--quick)}
+
+      /* ---- list entrance stagger ---- */
+      @keyframes rowIn{0%{opacity:0;transform:translateY(10px)}100%{opacity:1;transform:translateY(0)}}
+      .rowIn{animation:rowIn .38s var(--snap) both}
+
+      /* ---- price ticker ---- */
+      @keyframes tickFlash{0%,100%{filter:brightness(1)}50%{filter:brightness(1.5)}}
+      .tickFlash{animation:tickFlash .5s var(--quick)}
+      @keyframes arrowBounce{0%,100%{transform:translateY(0)}30%{transform:translateY(-3px)}60%{transform:translateY(1px)}}
+      .arrowBounce{animation:arrowBounce .5s var(--spring)}
+
+      /* ---- trade confirm ---- */
+      @keyframes confirmFlash{0%{opacity:0;transform:scale(.7)}30%{opacity:1;transform:scale(1.1)}70%{opacity:1}100%{opacity:0;transform:scale(1)}}
+      .confirmFlash{animation:confirmFlash .9s var(--snap) forwards}
+
+      /* ---- boot sequence ---- */
+      @keyframes bootScan{0%{top:-2px;opacity:0}10%{opacity:1}88%{opacity:1}100%{top:100%;opacity:0}}
+      .bootScan{animation:bootScan .78s var(--soft) forwards}
+      @keyframes bootFade{0%{opacity:0;filter:blur(4px)}45%{opacity:1;filter:blur(0)}75%{opacity:1}100%{opacity:0}}
+      .bootFade{animation:bootFade .78s var(--snap) forwards}
+
       @media (prefers-reduced-motion:reduce){*{animation:none!important}}
     `}</style>
   );
