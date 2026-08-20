@@ -490,9 +490,9 @@ function IsoBox({ a0, a1, b0, b1, h, top, right, left }) {
   const P00u = up(P00), P10u = up(P10), P11u = up(P11), P01u = up(P01);
   return (
     <g>
-      <polygon points={pStr(P01, P11, P11u, P01u)} fill={left} stroke="rgba(0,0,0,.3)" strokeWidth="0.5" />
-      <polygon points={pStr(P10, P11, P11u, P10u)} fill={right} stroke="rgba(0,0,0,.3)" strokeWidth="0.5" />
-      <polygon points={pStr(P00u, P10u, P11u, P01u)} fill={top} stroke="rgba(0,0,0,.3)" strokeWidth="0.5" />
+      <polygon points={pStr(P01, P11, P11u, P01u)} fill={left} stroke="rgba(0,0,0,.55)" strokeWidth="1.4" />
+      <polygon points={pStr(P10, P11, P11u, P10u)} fill={right} stroke="rgba(0,0,0,.55)" strokeWidth="1.4" />
+      <polygon points={pStr(P00u, P10u, P11u, P01u)} fill={top} stroke="rgba(0,0,0,.55)" strokeWidth="1.4" />
     </g>
   );
 }
@@ -637,20 +637,35 @@ function RoomScene({ propId, stage }) {
   const GRID = 5;
   const tiles = [];
   for (let i = 0; i < GRID; i++) for (let j = 0; j < GRID; j++) {
-    tiles.push(<polygon key={`${i}-${j}`} points={isoFloorQuad(i / GRID, (i + 1) / GRID, j / GRID, (j + 1) / GRID)} fill={(i + j) % 2 === 0 ? theme.floorA : theme.floorB} />);
+    tiles.push(<polygon key={`${i}-${j}`} points={isoFloorQuad(i / GRID, (i + 1) / GRID, j / GRID, (j + 1) / GRID)} fill={(i + j) % 2 === 0 ? theme.floorA : theme.floorB} stroke="rgba(0,0,0,.4)" strokeWidth="1" />);
   }
+  const panels = [0.2, 0.4, 0.6, 0.8].map((u) => (
+    <g key={u}>
+      <line x1={leftWallPt(u, 0).x} y1={leftWallPt(u, 0).y} x2={leftWallPt(u, WH).x} y2={leftWallPt(u, WH).y} stroke="rgba(0,0,0,.22)" strokeWidth="1.5" />
+      <line x1={rightWallPt(u, 0).x} y1={rightWallPt(u, 0).y} x2={rightWallPt(u, WH).x} y2={rightWallPt(u, WH).y} stroke="rgba(0,0,0,.22)" strokeWidth="1.5" />
+    </g>
+  ));
   return (
-    <svg viewBox="0 0 400 320" width="100%" height="100%" preserveAspectRatio="none" style={{ position: "absolute", inset: 0 }}>
+    <svg viewBox="0 0 400 320" width="100%" height="100%" preserveAspectRatio="none" shapeRendering="crispEdges" style={{ position: "absolute", inset: 0 }}>
+      <defs>
+        <radialGradient id="roomVignette" cx="50%" cy="15%" r="75%"><stop offset="0%" stopColor="#000" stopOpacity="0" /><stop offset="100%" stopColor="#000" stopOpacity="0.55" /></radialGradient>
+        <pattern id="dither" width="3" height="3" patternUnits="userSpaceOnUse">
+          <rect width="3" height="3" fill="#000" opacity="0" />
+          <rect width="1.4" height="1.4" fill="#000" opacity="0.32" />
+          <rect x="1.5" y="1.5" width="1.4" height="1.4" fill="#000" opacity="0.32" />
+        </pattern>
+      </defs>
       <polygon points={pStr(W, N, Nu, Wu)} fill={theme.wallL} />
       <polygon points={pStr(N, E, Eu, Nu)} fill={theme.wallR} />
+      <polygon points={pStr(W, N, Nu, Wu)} fill="url(#dither)" />
+      <polygon points={pStr(N, E, Eu, Nu)} fill="url(#dither)" />
+      {panels}
       <g>{tiles}</g>
+      <polygon points={pStr(W, N, E, isoPt(0, 1))} fill="url(#dither)" />
       <polyline points={pStr(W, N, E)} fill="none" stroke={theme.trim} strokeOpacity="0.5" strokeWidth="2.5" />
       <polyline points={pStr(Wu, Nu, Eu)} fill="none" stroke={theme.trim} strokeOpacity="0.28" strokeWidth="1.5" />
       {furnitureFor(propId, stage)}
       <polygon points={pStr(W, N, E, isoPt(0, 1))} fill="url(#roomVignette)" opacity="0.35" />
-      <defs>
-        <radialGradient id="roomVignette" cx="50%" cy="15%" r="75%"><stop offset="0%" stopColor="#000" stopOpacity="0" /><stop offset="100%" stopColor="#000" stopOpacity="0.55" /></radialGradient>
-      </defs>
     </svg>
   );
 }
