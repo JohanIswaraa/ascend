@@ -601,55 +601,121 @@ function CharacterFigure({ outfit, headItem, aura, sidekick, tiltX = 0, tiltY = 
     return () => { alive = false; clearTimeout(t1); clearTimeout(t2); };
   }, []);
   /* eyes track the drag — the figure looks where you spin it */
-  const gaze = Math.max(-2.4, Math.min(2.4, tiltX * 0.26));
-  const gazeY = Math.max(-1.6, Math.min(1.6, -tiltY * 0.18));
+  const gaze = Math.max(-2, Math.min(2, tiltX * 0.22));
+  const gazeY = Math.max(-1.4, Math.min(1.4, -tiltY * 0.16));
+  const uid = outfit ? outfit.id : "base";
+  /* light rakes in from the upper-left, so every form is lit L→R */
+  const SKIN_L = "#F2C79B", SKIN_M = "#D79C6B", SKIN_D = "#A96F45";
   return (
-    <svg viewBox="0 0 200 280" width="176" height="246" style={{ overflow: "visible", transform: `perspective(700px) rotateY(${tiltX}deg) rotateX(${-tiltY}deg)`, transition: "transform .15s ease-out" }}>
+    <svg viewBox="0 0 150 215" width="150" height="215" style={{ overflow: "visible", transform: `perspective(760px) rotateY(${tiltX * 0.7}deg) rotateX(${-tiltY * 0.5}deg)`, transition: "transform .16s ease-out" }}>
       <defs>
-        <linearGradient id="skinG" x1="0" x2="1"><stop offset="0" stopColor="#B87F4B" /><stop offset="1" stopColor="#E0A870" /></linearGradient>
-        <linearGradient id="torsoG" x1="0" x2="1"><stop offset="0" stopColor={secondary} /><stop offset="1" stopColor={primary} /></linearGradient>
-        <linearGradient id="legG" x1="0" x2="1"><stop offset="0" stopColor="#181A21" /><stop offset="1" stopColor="#2E313D" /></linearGradient>
+        <linearGradient id={`sk${uid}`} x1="0" y1="0" x2="1" y2="0.5">
+          <stop offset="0" stopColor={SKIN_L} /><stop offset="0.55" stopColor={SKIN_M} /><stop offset="1" stopColor={SKIN_D} />
+        </linearGradient>
+        <linearGradient id={`tor${uid}`} x1="0" y1="0" x2="1" y2="0.4">
+          <stop offset="0" stopColor={primary} /><stop offset="0.62" stopColor={primary} /><stop offset="1" stopColor={secondary} />
+        </linearGradient>
+        <linearGradient id={`pant${uid}`} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#394054" /><stop offset="0.6" stopColor="#2A3043" /><stop offset="1" stopColor="#191D2A" />
+        </linearGradient>
+        <linearGradient id={`hair${uid}`} x1="0" y1="0" x2="1" y2="0.6">
+          <stop offset="0" stopColor="#4A3524" /><stop offset="0.5" stopColor="#2E2117" /><stop offset="1" stopColor="#191210" />
+        </linearGradient>
+        <radialGradient id={`cheek${uid}`} cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0" stopColor="#E08A6A" stopOpacity="0.5" /><stop offset="1" stopColor="#E08A6A" stopOpacity="0" />
+        </radialGradient>
       </defs>
-      <ellipse cx="100" cy="268" rx="46" ry="9" fill="#000" opacity="0.35" />
-      {aura === "halo" && <ellipse cx="100" cy="255" rx="72" ry="13" fill="none" stroke={accent} strokeOpacity="0.45" strokeWidth="2" />}
-      <g className={pulse ? "charPulse" : "breathe"} style={{ transformOrigin: "100px 260px" }}>
-        <rect x="76" y="185" width="18" height="68" rx="9" fill="url(#legG)" />
-        <rect x="106" y="185" width="18" height="68" rx="9" fill="url(#legG)" />
-        <ellipse cx="85" cy="256" rx="12" ry="6" fill="#111214" /><ellipse cx="115" cy="256" rx="12" ry="6" fill="#111214" />
-        <rect x="51" y="116" width="16" height="62" rx="8" fill="url(#torsoG)" transform="rotate(8 59 116)" />
-        <rect x="133" y="116" width="16" height="62" rx="8" fill="url(#torsoG)" transform="rotate(-8 141 116)" />
-        <circle cx="57" cy="182" r="7.5" fill="url(#skinG)" /><circle cx="143" cy="182" r="7.5" fill="url(#skinG)" />
-        <rect x="70" y="98" width="60" height="90" rx="18" fill="url(#torsoG)" />
-        <rect x="70" y="98" width="60" height="90" rx="18" fill="none" stroke={accent} strokeOpacity="0.4" strokeWidth="1.5" />
-        <rect x="92" y="80" width="16" height="20" fill="url(#skinG)" />
-        <g style={{ transform: `translateX(${gaze * 0.9}px)`, transition: "transform .18s var(--snap)" }}>
-          <circle cx="100" cy="60" r="28" fill="url(#skinG)" />
-          {/* rim light: reads as a lit form against a dark room */}
-          <path d="M78 44 A28 28 0 0 1 116 38" fill="none" stroke="#FFE6C4" strokeOpacity="0.5" strokeWidth="2.4" strokeLinecap="round" />
-          {!headItem && <path d="M73 48 Q100 22 127 48 Q127 36 100 32 Q73 36 73 48 Z" fill="#241A12" />}
+
+      {/* contact shadow, squashed to the room's isometric ground plane */}
+      <ellipse cx="75" cy="205" rx="36" ry="9" fill="#000" opacity="0.5" />
+      <ellipse cx="75" cy="205" rx="22" ry="5.5" fill="#000" opacity="0.4" />
+      {aura === "halo" && <ellipse cx="75" cy="203" rx="52" ry="12" fill="none" stroke={accent} strokeOpacity="0.5" strokeWidth="2" />}
+
+      <g className={pulse ? "charPulse" : "idleBob"} style={{ transformOrigin: "75px 205px" }}>
+
+        {/* ---- FAR LEG: turned away, so it sits darker and reads behind ---- */}
+        <path d="M84 128 L95 128 L93 176 L91 194 L79 194 L82 176 Z" fill="#1B1F2C" />
+        <path d="M79 194 L91 194 L92 200 Q92 203 88 203 L72 203 Q69 203 70 200 Z" fill="#14161F" />
+
+        {/* ---- NEAR LEG: catches the key light ---- */}
+        <path d="M56 128 L72 128 L70 176 L68 196 L54 196 L57 176 Z" fill={`url(#pant${uid})`} />
+        <path d="M56 128 L61 128 L59 176 L57 196 L54 196 L57 176 Z" fill="#fff" opacity="0.07" />
+        <path d="M54 196 L68 196 L69 202 Q69 205 65 205 L47 205 Q44 205 45 202 Z" fill="#20242F" />
+        <path d="M45 202 L69 202 L69 204 Q69 205 65 205 L47 205 Q44 205 45 202 Z" fill="#0E1016" />
+
+        {/* ---- TORSO: tapered V, lit plane + turned plane ---- */}
+        <path d="M46 74 Q44 68 52 65 L98 65 Q106 68 104 74 L99 118 Q98 130 88 130 L62 130 Q52 130 51 118 Z" fill={`url(#tor${uid})`} />
+        {/* the plane turning away from the light */}
+        <path d="M88 66 Q104 68 104 74 L99 118 Q98 130 88 130 Z" fill="#000" opacity="0.22" />
+        {/* chest highlight */}
+        <path d="M56 70 Q66 66 76 68 L72 108 Q62 110 56 104 Z" fill="#fff" opacity="0.08" />
+        {/* collar + accent trim reads as gear */}
+        <path d="M62 65 Q75 76 88 65" fill="none" stroke="#000" strokeOpacity="0.3" strokeWidth="3" />
+        <path d="M51 118 Q75 126 99 118" fill="none" stroke={accent} strokeOpacity="0.45" strokeWidth="2" />
+
+        {/* ---- FAR ARM ---- */}
+        <path d="M99 72 Q109 74 108 84 L104 112 Q103 120 97 119 Q92 118 93 110 L96 84 Z" fill={secondary} />
+        <circle cx="99" cy="124" r="7" fill={SKIN_D} />
+
+        {/* ---- NEAR ARM ---- */}
+        <path d="M51 72 Q41 74 42 84 L46 112 Q47 121 53 120 Q59 119 58 111 L54 84 Z" fill={`url(#tor${uid})`} />
+        <path d="M51 72 Q41 74 42 84 L45 100 L50 99 L48 84 Z" fill="#fff" opacity="0.09" />
+        <circle cx="52" cy="125" r="7.5" fill={`url(#sk${uid})`} />
+        <circle cx="50" cy="123" r="3" fill="#fff" opacity="0.14" />
+
+        {/* ---- NECK ---- */}
+        <path d="M67 52 L83 52 L83 66 Q75 70 67 66 Z" fill={SKIN_D} />
+        <path d="M67 60 Q75 68 83 60 L83 66 Q75 70 67 66 Z" fill="#000" opacity="0.25" />
+
+        {/* ---- HEAD: the whole skull turns with the drag ---- */}
+        <g style={{ transform: `translateX(${gaze * 1.5}px) rotate(${gaze * 0.5}deg)`, transformOrigin: "75px 56px", transition: "transform .2s var(--snap)" }}>
+          {/* skull */}
+          <path d="M75 14 Q97 14 99 36 Q100 50 92 56 Q85 62 75 62 Q65 62 58 56 Q50 50 51 36 Q53 14 75 14 Z" fill={`url(#sk${uid})`} />
+          {/* jaw shadow on the turned side */}
+          <path d="M88 26 Q100 34 99 42 Q100 52 92 57 Q86 62 78 62 L78 26 Z" fill="#000" opacity="0.16" />
+          {/* ears */}
+          <ellipse cx="51" cy="42" rx="4.5" ry="6" fill={SKIN_M} />
+          <ellipse cx="99" cy="42" rx="4" ry="5.5" fill={SKIN_D} />
+          {/* rim light down the lit edge — separates him from a dark room */}
+          <path d="M56 50 Q49 42 52 30 Q56 17 70 14" fill="none" stroke="#FFF0D8" strokeOpacity="0.55" strokeWidth="2.2" strokeLinecap="round" />
+          {/* hair, shaped rather than a flat cap */}
+          {!headItem && (
+            <>
+              <path d="M51 38 Q49 14 75 12 Q101 14 99 38 Q97 26 88 22 Q76 30 62 25 Q54 28 51 38 Z" fill={`url(#hair${uid})`} />
+              <path d="M55 30 Q60 18 74 16 Q66 22 62 32 Z" fill="#fff" opacity="0.12" />
+            </>
+          )}
+          {/* cheeks give the face life */}
+          <ellipse cx="62" cy="47" rx="7" ry="5" fill={`url(#cheek${uid})`} />
+          <ellipse cx="88" cy="47" rx="6" ry="4.5" fill={`url(#cheek${uid})`} />
+          {/* brows */}
+          <path d="M60 36 Q65 33 70 35" fill="none" stroke="#2A1D14" strokeWidth="2.2" strokeLinecap="round" />
+          <path d="M81 35 Q86 33 90 36" fill="none" stroke="#2A1D14" strokeWidth="2.2" strokeLinecap="round" />
           {blink ? (
             <>
-              <path d="M86 60 L94 60" stroke="#1A1310" strokeWidth="2.4" strokeLinecap="round" />
-              <path d="M106 60 L114 60" stroke="#1A1310" strokeWidth="2.4" strokeLinecap="round" />
+              <path d="M60 43 Q65 46 70 43" fill="none" stroke="#241A12" strokeWidth="2.2" strokeLinecap="round" />
+              <path d="M81 43 Q85 46 90 43" fill="none" stroke="#241A12" strokeWidth="2.2" strokeLinecap="round" />
             </>
           ) : (
             <>
-              <ellipse cx="90" cy="60" rx="3" ry="3.4" fill="#F6F2EC" />
-              <ellipse cx="110" cy="60" rx="3" ry="3.4" fill="#F6F2EC" />
-              <circle cx={90 + gaze} cy={60 + gazeY} r="2.2" fill="#1A1310" />
-              <circle cx={110 + gaze} cy={60 + gazeY} r="2.2" fill="#1A1310" />
-              <circle cx={90 + gaze + 0.8} cy={60 + gazeY - 1} r="0.7" fill="#fff" />
-              <circle cx={110 + gaze + 0.8} cy={60 + gazeY - 1} r="0.7" fill="#fff" />
+              <ellipse cx="65" cy="43" rx="4.6" ry="5" fill="#FBF7F1" />
+              <ellipse cx="85.5" cy="43" rx="4.2" ry="4.7" fill="#F2ECE4" />
+              <circle cx={65 + gaze} cy={43 + gazeY} r="2.5" fill="#2B1D14" />
+              <circle cx={85.5 + gaze} cy={43 + gazeY} r="2.3" fill="#2B1D14" />
+              <circle cx={65 + gaze + 1} cy={43 + gazeY - 1.2} r="0.9" fill="#fff" />
+              <circle cx={85.5 + gaze + 1} cy={43 + gazeY - 1.2} r="0.8" fill="#fff" />
             </>
           )}
-          <path d="M91 72 Q100 77 109 72" stroke="#1A1310" strokeWidth="2" fill="none" strokeLinecap="round" />
-          {headItem && <text x="100" y="32" fontSize="26" textAnchor="middle">{headItem}</text>}
+          {/* nose + mouth */}
+          <path d="M75 47 Q77 51 74 52" fill="none" stroke={SKIN_D} strokeWidth="1.8" strokeLinecap="round" />
+          <path d="M69 55 Q75 59 82 55" fill="none" stroke="#8B4A3A" strokeWidth="2" fill="none" strokeLinecap="round" />
+          {headItem && <text x="75" y="14" fontSize="27" textAnchor="middle">{headItem}</text>}
         </g>
       </g>
-      {aura === "flame" && <text x="58" y="272" fontSize="20">🔥</text>}
-      {aura === "flame" && <text x="132" y="272" fontSize="20">🔥</text>}
-      {aura === "stars" && [[36, 90], [166, 130], [30, 190]].map((p, i) => <text key={i} x={p[0]} y={p[1]} fontSize="15" className="twinkle2" style={{ animationDelay: `${i * 0.3}s` }}>✨</text>)}
-      {sidekick && <text x="164" y="220" fontSize="24" className="companionFloat">{sidekick}</text>}
+
+      {aura === "flame" && <><text x="30" y="206" fontSize="19">🔥</text><text x="106" y="206" fontSize="19">🔥</text></>}
+      {aura === "stars" && [[18, 60], [122, 96], [14, 140]].map((p, i) => <text key={i} x={p[0]} y={p[1]} fontSize="15" className="twinkle2" style={{ animationDelay: `${i * 0.3}s` }}>✨</text>)}
+      {sidekick && <text x="116" y="150" fontSize="24" className="companionFloat">{sidekick}</text>}
     </svg>
   );
 }
@@ -721,9 +787,11 @@ function CarFigure({ tier, size = 120 }) {
   );
 }
 /* ---- isometric room ---- */
-const ISO_W = { x: 60, y: 196 };
-const ISO_DA = { x: 130, y: -76 };
-const ISO_DB = { x: 130, y: 76 };
+/* the room diamond is tuned so all four floor corners and the wall tops
+   land inside the 400x320 viewBox — nothing clips at the card edge */
+const ISO_W = { x: 30, y: 212 };
+const ISO_DA = { x: 170, y: -94 };
+const ISO_DB = { x: 170, y: 94 };
 function isoPt(a, b) { return { x: ISO_W.x + a * ISO_DA.x + b * ISO_DB.x, y: ISO_W.y + a * ISO_DA.y + b * ISO_DB.y }; }
 function pStr(...pts) { return pts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" "); }
 function isoFloorQuad(a0, a1, b0, b1) { return pStr(isoPt(a0, b0), isoPt(a1, b0), isoPt(a1, b1), isoPt(a0, b1)); }
@@ -913,7 +981,7 @@ function furnitureFor(propId, stage) {
 }
 function RoomScene({ propId, stage }) {
   const theme = ROOM_THEMES[propId || "none"];
-  const WH = 132;
+  const WH = 112;
   const W = isoPt(0, 0), N = isoPt(1, 0), E = isoPt(1, 1);
   const Nu = { x: N.x, y: N.y - WH }, Wu = { x: W.x, y: W.y - WH }, Eu = { x: E.x, y: E.y - WH };
   const GRID = 5;
@@ -1019,19 +1087,18 @@ function CharacterScene({ S, stage, pulse, burst, shake, muted, onToggleMute }) 
       {/* --- time-of-day colour grade over the whole room --- */}
       <div className="absolute inset-0 pointer-events-none" style={{ background: light.tint, opacity: light.amt, mixBlendMode: "soft-light" }} />
 
-      {/* --- key light cone falling on the character --- */}
-      <div className="absolute top-0 pointer-events-none" style={{ left: "38%", width: 170, height: "58%", transform: `translateX(-50%) ${px(-2)}`, background: `linear-gradient(180deg, ${accent}26, transparent 80%)`, clipPath: "polygon(50% 0%, 22% 100%, 78% 100%)" }} />
+      {/* --- key light cone falling where the character stands --- */}
+      <div className="absolute top-0 pointer-events-none" style={{ left: "44%", width: 150, height: "62%", transform: `translateX(-50%) ${px(-2)}`, background: `linear-gradient(180deg, ${accent}22, transparent 82%)`, clipPath: "polygon(50% 0%, 24% 100%, 76% 100%)" }} />
 
-      {/* --- plane 2: the car, mid-depth --- */}
+      {/* --- plane 2: the car, parked on the floor to his right --- */}
       {eq.car && (
-        <div key={eq.car.id} className="absolute carDriveIn" style={{ left: "70%", top: "38%", transform: `translate(-50%,-50%) ${px(5)}`, transition: "transform .2s var(--snap)" }}>
-          <CarShowcase tier={carTierOf(eq.car.id)} size={188} />
+        <div key={eq.car.id} className="absolute carDriveIn" style={{ left: "65%", top: "62%", transform: `translate(-50%,-50%) ${px(4)}`, transition: "transform .2s var(--snap)" }}>
+          <CarShowcase tier={carTierOf(eq.car.id)} size={104} />
         </div>
       )}
 
-      {/* --- plane 3: the hero, closest, moves most --- */}
-      <div onClick={onPoke} className="absolute" style={{ left: "36%", bottom: 22, transform: `translateX(-50%) ${px(9)}`, transition: "transform .2s var(--snap)", cursor: "pointer" }}>
-        <div className="absolute rounded-full" style={{ left: "50%", bottom: -4, width: 108, height: 22, transform: "translateX(-50%)", background: "radial-gradient(ellipse, rgba(0,0,0,.5), transparent 72%)" }} />
+      {/* --- plane 3: the hero, standing on the floor inside the room --- */}
+      <div onClick={onPoke} className="absolute" style={{ left: "36%", bottom: "14%", transform: `translateX(-50%) scale(.84) ${px(8)}`, transition: "transform .2s var(--snap)", cursor: "pointer", transformOrigin: "50% 100%" }}>
         <CharacterFigure outfit={eq.outfit} headItem={eq.head && eq.head.emoji} aura={eq.aura && eq.aura.style} sidekick={eq.sidekick && eq.sidekick.emoji} tiltX={t.x * 10} tiltY={t.y * 10} pulse={pulse || poke} />
       </div>
 
@@ -1993,6 +2060,11 @@ function Style() {
       .trackpulse{animation:trackPulse 1.7s ease-in-out infinite}
       @keyframes breathe{0%,100%{transform:scaleY(1) rotate(0deg)}25%{transform:scaleY(1.014) rotate(-0.5deg)}75%{transform:scaleY(1.007) rotate(0.5deg)}}
       .breathe{animation:breathe 3.6s ease-in-out infinite}
+      /* idle: breath lift + a slow weight shift, so he never looks frozen */
+      @keyframes idleBob{0%,100%{transform:translateY(0) scaleY(1) rotate(0deg)}
+        30%{transform:translateY(-2.2px) scaleY(1.012) rotate(-0.6deg)}
+        62%{transform:translateY(-0.6px) scaleY(1.005) rotate(0.5deg)}}
+      .idleBob{animation:idleBob 4.2s ease-in-out infinite}
       @keyframes charPulse{0%{transform:scale(1)}40%{transform:scale(1.08)}100%{transform:scale(1)}}
       .charPulse{animation:charPulse .5s cubic-bezier(.3,1.5,.4,1)}
       @keyframes compFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
