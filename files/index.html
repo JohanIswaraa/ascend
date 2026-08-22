@@ -271,6 +271,204 @@ function assetSeries(asset) {
   return pts;
 }
 
+/* ================================================================== */
+/*  PROCEDURAL AUDIO — every sound is synthesized live, zero assets    */
+/* ================================================================== */
+const Sfx = (() => {
+  let ctx = null, muted = false, master = null;
+  function ac() {
+    if (!ctx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      ctx = new AC();
+      master = ctx.createGain();
+      master.gain.value = 0.9;
+      master.connect(ctx.destination);
+    }
+    if (ctx.state === "suspended") ctx.resume();
+    return ctx;
+  }
+  function tone({ freq, dur = 0.15, type = "sine", vol = 0.15, to = 0, delay = 0 }) {
+    const c = ac(); if (!c || muted) return;
+    const t0 = c.currentTime + delay;
+    const osc = c.createOscillator(), g = c.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, t0);
+    if (to) osc.frequency.exponentialRampToValueAtTime(Math.max(20, to), t0 + dur);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(vol, t0 + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    osc.connect(g); g.connect(master);
+    osc.start(t0); osc.stop(t0 + dur + 0.03);
+  }
+  function noise({ dur = 0.2, vol = 0.1, delay = 0, freq = 1400, q = 1 }) {
+    const c = ac(); if (!c || muted) return;
+    const t0 = c.currentTime + delay;
+    const len = Math.max(1, Math.floor(c.sampleRate * dur));
+    const buf = c.createBuffer(1, len, c.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    const src = c.createBufferSource(); src.buffer = buf;
+    const f = c.createBiquadFilter(); f.type = "bandpass"; f.frequency.value = freq; f.Q.value = q;
+    const g = c.createGain();
+    g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    src.connect(f); f.connect(g); g.connect(master);
+    src.start(t0);
+  }
+  return {
+    setMuted(m) { muted = m; if (!m) ac(); },
+    isMuted: () => muted,
+    tap() { tone({ freq: 460, to: 620, dur: 0.05, type: "triangle", vol: 0.05 }); },
+    equip() {
+      tone({ freq: 380, dur: 0.07, type: "square", vol: 0.045 });
+      tone({ freq: 720, dur: 0.13, type: "triangle", vol: 0.06, delay: 0.04 });
+      noise({ dur: 0.1, vol: 0.03, freq: 3200, delay: 0.02 });
+    },
+    purchase() {
+      [523.25, 659.25, 783.99, 1046.5].forEach((f, i) =>
+        tone({ freq: f, dur: 0.22, type: "triangle", vol: 0.075, delay: i * 0.052 }));
+      noise({ dur: 0.34, vol: 0.04, freq: 2600, delay: 0.02 });
+      tone({ freq: 130, to: 90, dur: 0.3, type: "sine", vol: 0.1 });
+    },
+    denied() { tone({ freq: 190, to: 110, dur: 0.2, type: "square", vol: 0.07 }); },
+    levelUp() {
+      [392, 523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
+        tone({ freq: f, dur: 0.55, type: "sawtooth", vol: 0.055, delay: 0.12 + i * 0.085 });
+        tone({ freq: f * 2, dur: 0.4, type: "sine", vol: 0.03, delay: 0.12 + i * 0.085 });
+      });
+      tone({ freq: 110, to: 55, dur: 1.1, type: "sine", vol: 0.2 });
+      noise({ dur: 0.9, vol: 0.06, freq: 700, q: 0.7, delay: 0.05 });
+      noise({ dur: 0.5, vol: 0.05, freq: 5200, delay: 0.55 });
+    },
+  };
+})();
+
+/* ================================================================== */
+/*  CANVAS PARTICLE FIELD — ambient drift + physical burst sparks      */
+/* ================================================================== */
+function ParticleField({ burst, accent, density = 26 }) {
+  const ref = useRef(null);
+  const parts = useRef([]);
+  const accentRef = useRef(accent);
+  useEffect(() => { accentRef.current = accent; }, [accent]);
+
+  useEffect(() => {
+    const cv = ref.current; if (!cv) return;
+    const g = cv.getContext("2d"); if (!g) return;
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    let w = 1, h = 1, raf = 0;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    function size() {
+      const r = cv.getBoundingClientRect();
+      w = Math.max(1, r.width); h = Math.max(1, r.height);
+      cv.width = w * dpr; cv.height = h * dpr;
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    size();
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(size) : null;
+    if (ro) ro.observe(cv);
+    parts.current = [];
+    for (let i = 0; i < density; i++) {
+      parts.current.push({ kind: "mote", x: Math.random() * w, y: Math.random() * h,
+        vx: (Math.random() - 0.5) * 0.14, vy: -0.1 - Math.random() * 0.2,
+        r: 0.5 + Math.random() * 1.5, ph: Math.random() * 6.28, life: 1 });
+    }
+    function frame(ts) {
+      g.clearRect(0, 0, w, h);
+      const arr = parts.current;
+      for (let i = arr.length - 1; i >= 0; i--) {
+        const p = arr[i];
+        p.x += p.vx; p.y += p.vy;
+        if (p.kind === "spark") {
+          p.vy += 0.06; p.vx *= 0.988; p.vy *= 0.995;
+          p.life -= p.decay;
+          if (p.life <= 0) { arr.splice(i, 1); continue; }
+          g.globalAlpha = Math.max(0, p.life);
+          g.fillStyle = p.color;
+          g.beginPath(); g.arc(p.x, p.y, p.r * p.life, 0, 6.2832); g.fill();
+          g.globalAlpha = Math.max(0, p.life) * 0.28;
+          g.beginPath(); g.arc(p.x, p.y, p.r * 3.4 * p.life, 0, 6.2832); g.fill();
+        } else {
+          if (p.y < -8) { p.y = h + 6; p.x = Math.random() * w; }
+          if (p.x < -8) p.x = w + 6; else if (p.x > w + 8) p.x = -6;
+          g.globalAlpha = 0.22 + Math.sin(ts / 900 + p.ph) * 0.18;
+          g.fillStyle = accentRef.current;
+          g.beginPath(); g.arc(p.x, p.y, p.r, 0, 6.2832); g.fill();
+        }
+      }
+      g.globalAlpha = 1;
+      raf = requestAnimationFrame(frame);
+    }
+    raf = requestAnimationFrame(frame);
+    return () => { cancelAnimationFrame(raf); if (ro) ro.disconnect(); };
+  }, [density]);
+
+  useEffect(() => {
+    if (!burst) return;
+    const cv = ref.current; if (!cv) return;
+    const r = cv.getBoundingClientRect();
+    const cx = r.width * (burst.x != null ? burst.x : 0.36);
+    const cy = r.height * (burst.y != null ? burst.y : 0.62);
+    const n = burst.count || 48;
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * 6.2832;
+      const sp = 1.1 + Math.random() * 4.4;
+      parts.current.push({ kind: "spark", x: cx, y: cy,
+        vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 1.5,
+        r: 0.9 + Math.random() * 2.4, life: 1,
+        decay: 0.011 + Math.random() * 0.016, color: burst.color || "#fff" });
+    }
+  }, [burst]);
+
+  return <canvas ref={ref} className="absolute inset-0 pointer-events-none" style={{ width: "100%", height: "100%" }} />;
+}
+
+/* ================================================================== */
+/*  LEVEL-UP CINEMATIC — letterbox, shockwave, kinetic rank reveal     */
+/* ================================================================== */
+function LevelUpCinematic({ data, onDone }) {
+  const { accent, accent2 } = useAccent();
+  useEffect(() => {
+    const t = setTimeout(onDone, 2700);
+    return () => clearTimeout(t);
+  }, [data, onDone]);
+  return (
+    <div className="absolute inset-0 z-40 flex items-center justify-center pointer-events-none overflow-hidden rounded-[28px]">
+      <div className="absolute inset-0 luFlash" style={{ background: `radial-gradient(circle at 50% 52%, ${accent}, ${accent2} 34%, transparent 68%)` }} />
+      <div className="absolute inset-x-0 top-0 luBarT" style={{ height: "15%", background: "#05050A", borderBottom: `1px solid ${accent}55` }} />
+      <div className="absolute inset-x-0 bottom-0 luBarB" style={{ height: "15%", background: "#05050A", borderTop: `1px solid ${accent}55` }} />
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="absolute rounded-full luRing" style={{ width: 80, height: 80, border: `2px solid ${accent}`, animationDelay: `${i * 0.17}s` }} />
+      ))}
+      {/* rays fan out from dead centre: each is anchored by its own base */}
+      <div className="absolute" style={{ left: "50%", top: "50%", width: 0, height: 0 }}>
+        {Array.from({ length: 16 }, (_, i) => (
+          <span key={"r" + i} className="absolute luRay" style={{
+            left: -1, bottom: 0, width: 2, height: 210,
+            background: `linear-gradient(to top, ${accent}, transparent)`,
+            transformOrigin: "50% 100%", ["--rot"]: `${i * (360 / 16)}deg`,
+            animationDelay: `${0.1 + i * 0.012}s`,
+          }} />
+        ))}
+      </div>
+      {/* scrim keeps the rank type legible over whatever screen you were on */}
+      <div className="absolute luScrim" style={{ left: "50%", top: "50%", width: 320, height: 320, marginLeft: -160, marginTop: -160, background: "radial-gradient(circle, rgba(4,4,9,.92) 0%, rgba(4,4,9,.7) 46%, transparent 72%)" }} />
+      <div className="relative text-center luText px-4">
+        <div className="text-[10px] font-black" style={{ color: accent, fontFamily: MONO, letterSpacing: "0.55em", textIndent: "0.55em" }}>LEVEL UP</div>
+        <div className="text-[54px] font-extrabold leading-none my-1" style={{ fontFamily: DISPLAY, color: "#fff", letterSpacing: "-0.04em", textShadow: `0 0 34px ${accent}, 0 0 70px ${accent}88` }}>
+          {String(data.stage).padStart(2, "0")}
+        </div>
+        <div className="text-[14px] font-black" style={{ color: "#fff", fontFamily: MONO, letterSpacing: "0.34em", textIndent: "0.34em" }}>{data.rank}</div>
+        {data.unlocked > 0 && (
+          <div className="mt-2.5 inline-block px-2.5 py-1 rounded-md text-[9.5px] font-bold" style={{ background: "rgba(0,0,0,.55)", border: `1px solid ${accent}66`, color: accent, fontFamily: MONO, letterSpacing: "0.1em" }}>
+            +{data.unlocked} ITEM{data.unlocked === 1 ? "" : "S"} UNLOCKED
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ---------- small shared components ---------- */
 function useTilt(max = 10) {
   const [t, setT] = useState({ x: 0, y: 0 });
@@ -388,6 +586,23 @@ function CharacterFigure({ outfit, headItem, aura, sidekick, tiltX = 0, tiltY = 
   const { accent } = useAccent();
   const primary = outfit ? outfit.c1 : "#3A3F4E";
   const secondary = outfit ? outfit.c2 : "#23262F";
+  /* organic idle: irregular blinks, never a metronome */
+  const [blink, setBlink] = useState(false);
+  useEffect(() => {
+    let alive = true, t1, t2;
+    function loop() {
+      t1 = setTimeout(() => {
+        if (!alive) return;
+        setBlink(true);
+        t2 = setTimeout(() => { if (alive) { setBlink(false); loop(); } }, 110);
+      }, 1800 + Math.random() * 3600);
+    }
+    loop();
+    return () => { alive = false; clearTimeout(t1); clearTimeout(t2); };
+  }, []);
+  /* eyes track the drag — the figure looks where you spin it */
+  const gaze = Math.max(-2.4, Math.min(2.4, tiltX * 0.26));
+  const gazeY = Math.max(-1.6, Math.min(1.6, -tiltY * 0.18));
   return (
     <svg viewBox="0 0 200 280" width="176" height="246" style={{ overflow: "visible", transform: `perspective(700px) rotateY(${tiltX}deg) rotateX(${-tiltY}deg)`, transition: "transform .15s ease-out" }}>
       <defs>
@@ -407,11 +622,29 @@ function CharacterFigure({ outfit, headItem, aura, sidekick, tiltX = 0, tiltY = 
         <rect x="70" y="98" width="60" height="90" rx="18" fill="url(#torsoG)" />
         <rect x="70" y="98" width="60" height="90" rx="18" fill="none" stroke={accent} strokeOpacity="0.4" strokeWidth="1.5" />
         <rect x="92" y="80" width="16" height="20" fill="url(#skinG)" />
-        <circle cx="100" cy="60" r="28" fill="url(#skinG)" />
-        {!headItem && <path d="M73 48 Q100 22 127 48 Q127 36 100 32 Q73 36 73 48 Z" fill="#241A12" />}
-        <circle cx="90" cy="60" r="2.4" fill="#1A1310" /><circle cx="110" cy="60" r="2.4" fill="#1A1310" />
-        <path d="M91 72 Q100 77 109 72" stroke="#1A1310" strokeWidth="2" fill="none" strokeLinecap="round" />
-        {headItem && <text x="100" y="32" fontSize="26" textAnchor="middle">{headItem}</text>}
+        <g style={{ transform: `translateX(${gaze * 0.9}px)`, transition: "transform .18s var(--snap)" }}>
+          <circle cx="100" cy="60" r="28" fill="url(#skinG)" />
+          {/* rim light: reads as a lit form against a dark room */}
+          <path d="M78 44 A28 28 0 0 1 116 38" fill="none" stroke="#FFE6C4" strokeOpacity="0.5" strokeWidth="2.4" strokeLinecap="round" />
+          {!headItem && <path d="M73 48 Q100 22 127 48 Q127 36 100 32 Q73 36 73 48 Z" fill="#241A12" />}
+          {blink ? (
+            <>
+              <path d="M86 60 L94 60" stroke="#1A1310" strokeWidth="2.4" strokeLinecap="round" />
+              <path d="M106 60 L114 60" stroke="#1A1310" strokeWidth="2.4" strokeLinecap="round" />
+            </>
+          ) : (
+            <>
+              <ellipse cx="90" cy="60" rx="3" ry="3.4" fill="#F6F2EC" />
+              <ellipse cx="110" cy="60" rx="3" ry="3.4" fill="#F6F2EC" />
+              <circle cx={90 + gaze} cy={60 + gazeY} r="2.2" fill="#1A1310" />
+              <circle cx={110 + gaze} cy={60 + gazeY} r="2.2" fill="#1A1310" />
+              <circle cx={90 + gaze + 0.8} cy={60 + gazeY - 1} r="0.7" fill="#fff" />
+              <circle cx={110 + gaze + 0.8} cy={60 + gazeY - 1} r="0.7" fill="#fff" />
+            </>
+          )}
+          <path d="M91 72 Q100 77 109 72" stroke="#1A1310" strokeWidth="2" fill="none" strokeLinecap="round" />
+          {headItem && <text x="100" y="32" fontSize="26" textAnchor="middle">{headItem}</text>}
+        </g>
       </g>
       {aura === "flame" && <text x="58" y="272" fontSize="20">🔥</text>}
       {aura === "flame" && <text x="132" y="272" fontSize="20">🔥</text>}
@@ -738,48 +971,99 @@ function CarShowcase({ tier, size = 150 }) {
     </div>
   );
 }
-function CharacterScene({ S, stage, pulse }) {
+/* the room is lit by the real clock: dawn warm, noon bright, night cold */
+function timeOfDayLight() {
+  const h = new Date().getHours();
+  if (h < 5) return { tint: "#0A1030", amt: 0.5, ray: "#6E8CFF", label: "NIGHT" };
+  if (h < 8) return { tint: "#FF8A4C", amt: 0.24, ray: "#FFB870", label: "DAWN" };
+  if (h < 16) return { tint: "#FFE9C4", amt: 0.12, ray: "#FFF0D0", label: "DAY" };
+  if (h < 19) return { tint: "#FF7A4C", amt: 0.26, ray: "#FF9E5C", label: "DUSK" };
+  return { tint: "#101838", amt: 0.42, ray: "#8FA8FF", label: "NIGHT" };
+}
+function CharacterScene({ S, stage, pulse, burst, shake, muted, onToggleMute }) {
   const { accent } = useAccent();
   const eq = useMemo(() => resolveEquipped(S.equipped), [S.equipped]);
   const { t, ref, handlers } = useTilt();
   const [poke, setPoke] = useState(false);
-  function onPoke() { if (poke || pulse) return; setPoke(true); setTimeout(() => setPoke(false), 480); }
-  const moteCount = Math.min(9, 4 + Math.floor(stage / 4));
+  const light = useMemo(timeOfDayLight, []);
+  function onPoke() {
+    if (poke || pulse) return;
+    Sfx.tap();
+    setPoke(true);
+    setTimeout(() => setPoke(false), 480);
+  }
   const elite = stage >= 17, legend = stage >= 22, decorated = stage >= 10;
+  /* depth planes: the further back, the less it slides under your thumb */
+  const px = (depth) => `translate3d(${t.x * depth}px, ${t.y * depth * 0.5}px, 0)`;
   return (
-    <div ref={ref} {...handlers} className={"mx-4 rounded-[28px] relative overflow-hidden" + (elite ? " legendRim" : "")} style={{ height: 430, background: "#0A0A0F", border: `1px solid ${legend ? "#F5B429" : C.line}`, boxShadow: SHADOW, touchAction: "none" }}>
-      <RoomScene propId={eq.property && eq.property.id} stage={stage} />
-      <div className="absolute top-0 pointer-events-none" style={{ left: "38%", width: 170, height: "58%", transform: "translateX(-50%)", background: `linear-gradient(180deg, ${accent}22, transparent 80%)`, clipPath: "polygon(50% 0%, 22% 100%, 78% 100%)" }} />
-      {Array.from({ length: moteCount }, (_, i) => (
-        <span key={i} className="absolute rounded-full sceneMote pointer-events-none" style={{ left: `${6 + i * (88 / moteCount)}%`, bottom: 14, width: 3, height: 3, background: accent, animationDelay: `${i * 0.8}s`, animationDuration: `${5 + (i % 3)}s` }} />
-      ))}
-      {legend && Array.from({ length: 6 }, (_, i) => (
-        <span key={"e" + i} className="absolute rounded-full emberRise pointer-events-none" style={{ left: `${14 + i * 14}%`, bottom: 24, width: 3, height: 3, background: "#F5D77A", boxShadow: "0 0 6px #F5B429", animationDelay: `${i * 0.6}s`, animationDuration: `${4.5 + (i % 3)}s`, ["--drift"]: `${(i % 2 ? 1 : -1) * 10}px` }} />
-      ))}
-      {decorated && (
-        <div className="absolute top-3 right-4 flex items-center gap-1 px-2 py-1 rounded-md" style={{ background: "rgba(0,0,0,.4)", border: "1px solid rgba(245,180,41,.4)" }}>
-          <span className="trophyGlint text-[12px]">🏆</span>
-          <span className="text-[9px] font-bold" style={{ color: "#F5D77A", fontFamily: MONO }}>LV{stage}</span>
-        </div>
-      )}
-      <div className="absolute top-3 left-4 px-2.5 py-1 rounded-md text-[11px] font-bold flex items-center gap-1" style={{ background: `linear-gradient(135deg, ${C.surf2}, rgba(0,0,0,.5))`, border: `1px solid ${accent}44`, color: accent, fontFamily: MONO, boxShadow: `0 0 12px ${accent}30` }}>
-        <span style={{ fontSize: 9 }}>▲</span>{rankName(stage)}
+    <div ref={ref} {...handlers}
+      className={"mx-4 rounded-[28px] relative overflow-hidden" + (elite ? " legendRim" : "") + (shake ? " sceneShake" : "")}
+      style={{ height: 430, background: "#05050A", border: `1px solid ${legend ? "#F5B429" : C.line}`, boxShadow: SHADOW, touchAction: "none", perspective: "900px" }}>
+
+      {/* --- plane 1: the room shell, furthest back, moves least --- */}
+      <div className="absolute inset-0" style={{ transform: px(-3), transition: "transform .2s var(--snap)" }}>
+        <RoomScene propId={eq.property && eq.property.id} stage={stage} />
       </div>
+
+      {/* --- volumetric god rays raking across the room --- */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden" style={{ transform: px(-6), transition: "transform .2s var(--snap)" }}>
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="absolute godRay" style={{
+            left: `${18 + i * 15}%`, top: "-12%", width: 26 + i * 9, height: "86%",
+            background: `linear-gradient(to bottom, ${light.ray}, transparent 76%)`,
+            filter: "blur(7px)", animationDelay: `${i * 1.5}s`,
+          }} />
+        ))}
+      </div>
+
+      {/* --- time-of-day colour grade over the whole room --- */}
+      <div className="absolute inset-0 pointer-events-none" style={{ background: light.tint, opacity: light.amt, mixBlendMode: "soft-light" }} />
+
+      {/* --- key light cone falling on the character --- */}
+      <div className="absolute top-0 pointer-events-none" style={{ left: "38%", width: 170, height: "58%", transform: `translateX(-50%) ${px(-2)}`, background: `linear-gradient(180deg, ${accent}26, transparent 80%)`, clipPath: "polygon(50% 0%, 22% 100%, 78% 100%)" }} />
+
+      {/* --- plane 2: the car, mid-depth --- */}
       {eq.car && (
-        <div key={eq.car.id} className="absolute carDriveIn" style={{ left: "70%", top: "38%", transform: "translate(-50%,-50%)" }}>
+        <div key={eq.car.id} className="absolute carDriveIn" style={{ left: "70%", top: "38%", transform: `translate(-50%,-50%) ${px(5)}`, transition: "transform .2s var(--snap)" }}>
           <CarShowcase tier={carTierOf(eq.car.id)} size={188} />
         </div>
       )}
-      <div onClick={onPoke} className="absolute" style={{ left: "36%", bottom: 22, transform: "translateX(-50%)", cursor: "pointer" }}>
-        <div className="absolute rounded-full" style={{ left: "50%", bottom: -4, width: 108, height: 22, transform: "translateX(-50%)", background: "radial-gradient(ellipse, rgba(0,0,0,.48), transparent 72%)" }} />
+
+      {/* --- plane 3: the hero, closest, moves most --- */}
+      <div onClick={onPoke} className="absolute" style={{ left: "36%", bottom: 22, transform: `translateX(-50%) ${px(9)}`, transition: "transform .2s var(--snap)", cursor: "pointer" }}>
+        <div className="absolute rounded-full" style={{ left: "50%", bottom: -4, width: 108, height: 22, transform: "translateX(-50%)", background: "radial-gradient(ellipse, rgba(0,0,0,.5), transparent 72%)" }} />
         <CharacterFigure outfit={eq.outfit} headItem={eq.head && eq.head.emoji} aura={eq.aura && eq.aura.style} sidekick={eq.sidekick && eq.sidekick.emoji} tiltX={t.x * 10} tiltY={t.y * 10} pulse={pulse || poke} />
       </div>
+
+      {/* --- live physics particles: ambient drift + purchase sparks --- */}
+      <ParticleField burst={burst} accent={accent} density={Math.min(34, 16 + stage)} />
+
+      {legend && Array.from({ length: 6 }, (_, i) => (
+        <span key={"e" + i} className="absolute rounded-full emberRise pointer-events-none" style={{ left: `${14 + i * 14}%`, bottom: 24, width: 3, height: 3, background: "#F5D77A", boxShadow: "0 0 6px #F5B429", animationDelay: `${i * 0.6}s`, animationDuration: `${4.5 + (i % 3)}s`, ["--drift"]: `${(i % 2 ? 1 : -1) * 10}px` }} />
+      ))}
+
+      {/* --- HUD chrome --- */}
+      <div className="absolute top-3 left-4 px-2.5 py-1 rounded-md text-[11px] font-bold flex items-center gap-1" style={{ background: `linear-gradient(135deg, ${C.surf2}, rgba(0,0,0,.5))`, border: `1px solid ${accent}44`, color: accent, fontFamily: MONO, boxShadow: `0 0 12px ${accent}30` }}>
+        <span style={{ fontSize: 9 }}>▲</span>{rankName(stage)}
+      </div>
+      <div className="absolute top-3 right-4 flex items-center gap-1.5">
+        {decorated && (
+          <div className="flex items-center gap-1 px-2 py-1 rounded-md" style={{ background: "rgba(0,0,0,.45)", border: "1px solid rgba(245,180,41,.4)" }}>
+            <span className="trophyGlint text-[12px]">🏆</span>
+            <span className="text-[9px] font-bold" style={{ color: "#F5D77A", fontFamily: MONO }}>LV{stage}</span>
+          </div>
+        )}
+        <div className="px-2 py-1 rounded-md text-[8.5px] font-bold" style={{ background: "rgba(0,0,0,.45)", border: `1px solid ${C.line}`, color: C.soft, fontFamily: MONO, letterSpacing: "0.1em" }}>{light.label}</div>
+        <button onClick={onToggleMute} aria-label={muted ? "Unmute sound" : "Mute sound"}
+          className="px-2 py-1 rounded-md text-[11px] leading-none navBtn"
+          style={{ background: "rgba(0,0,0,.45)", border: `1px solid ${muted ? C.line : accent + "66"}` }}>
+          {muted ? "🔇" : "🔊"}
+        </button>
+      </div>
+
       {pulse && (
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute rounded-full revealRing" style={{ width: 40, height: 40, border: `2px solid ${accent}`, left: "calc(36% - 20px)", top: "62%" }} />
-          {[0, 1, 2, 3, 4, 5].map((i) => (
-            <span key={i} className="absolute rounded-full" style={{ width: 5, height: 5, background: accent, left: "calc(36% - 2.5px)", top: "64%", animation: "revealSpark .7s ease-out forwards", animationDelay: `${i * 0.02}s`, ["--ang"]: `${i * 60}deg` }} />
-          ))}
         </div>
       )}
     </div>
@@ -795,6 +1079,7 @@ function Terra() {
   const [completeTick, setCompleteTick] = useState(0);
   const [booting, setBooting] = useState(true);
   const [pressedTab, setPressedTab] = useState(null);
+  const [levelUp, setLevelUp] = useState(null);
   const stateRef = useRef(S);
   useEffect(() => { stateRef.current = S; }, [S]);
 
@@ -830,6 +1115,22 @@ function Terra() {
   const shownCash = useCount(Math.round(S.cash));
   const activeTheme = THEMES.find((t) => t.id === S.theme) || THEMES[0];
   const totalDone = S.habits.reduce((s, h) => s + h.total, 0);
+  const stage = stageFor(totalDone);
+
+  /* the level-up moment fires from wherever you are — you earn it on Today */
+  const prevStage = useRef(stage);
+  useEffect(() => {
+    if (stage > prevStage.current) {
+      const from = prevStage.current;
+      const unlocked = ITEMS.filter((it) => {
+        const r = rarityForRank(ITEMS.filter((x) => x.slot === it.slot).indexOf(it));
+        return r.minStage > from && r.minStage <= stage;
+      }).length;
+      setLevelUp({ stage, rank: rankName(stage), unlocked });
+      Sfx.levelUp();
+    }
+    prevStage.current = stage;
+  }, [stage]);
 
   function complete(id) {
     setS((s) => {
@@ -944,6 +1245,7 @@ function Terra() {
         </nav>
 
         {settingsOpen && <SettingsSheet theme={S.theme} onSelect={selectTheme} onClose={() => setSettingsOpen(false)} />}
+        {levelUp && <LevelUpCinematic data={levelUp} onDone={() => setLevelUp(null)} />}
         <BootOverlay show={booting} />
       </div>
     </ThemeCtx.Provider>
@@ -1477,7 +1779,7 @@ function StatRing({ label, value, glyph, tint, size = 54 }) {
     </div>
   );
 }
-function CollectionRow({ slot, S, stage, onBuy, onEquip }) {
+function CollectionRow({ slot, S, stage, onBuy, onEquip, lootId }) {
   const { accent } = useAccent();
   const items = ITEMS.filter((i) => i.slot === slot);
   const collected = items.filter((i) => S.itemsOwned.includes(i.id)).length;
@@ -1499,8 +1801,10 @@ function CollectionRow({ slot, S, stage, onBuy, onEquip }) {
           const afford = S.cash >= item.price;
           const locked = stage < rarity.minStage;
           const icon = item.c1 ? <div className="rounded-full" style={{ width: 26, height: 26, background: `linear-gradient(135deg, ${item.c1}, ${item.c2})` }} /> : <span className="text-2xl">{item.emoji || (item.style === "halo" ? "⭕" : item.style === "flame" ? "🔥" : "✨")}</span>;
+          const looting = lootId === item.id;
           return (
-            <div key={item.id} className="shrink-0 relative flex flex-col items-center text-center rounded-[18px] hoverLift" style={{ width: 90, height: 112, padding: "10px 6px 8px", background: C.surf, border: `1px solid ${isEquipped ? accent : C.line}`, boxShadow: isEquipped ? `0 0 0 1px ${accent}44, 0 0 16px ${accent}40, ${SHADOW}` : SHADOW, scrollSnapAlign: "start" }}>
+            <div key={item.id} className={"shrink-0 relative flex flex-col items-center text-center rounded-[18px] hoverLift overflow-hidden" + (looting ? " lootPop" : "")} style={{ width: 90, height: 112, padding: "10px 6px 8px", background: C.surf, border: `1px solid ${isEquipped ? accent : C.line}`, boxShadow: isEquipped ? `0 0 0 1px ${accent}44, 0 0 16px ${accent}40, ${SHADOW}` : SHADOW, scrollSnapAlign: "start" }}>
+              {looting && <div className="absolute inset-0 pointer-events-none lootBeam" style={{ background: `linear-gradient(to top, transparent, ${rarity.color}aa, transparent)` }} />}
               <div className="absolute top-1.5 left-1.5 rounded-full" style={{ width: 6, height: 6, background: rarity.color, boxShadow: `0 0 6px ${rarity.color}` }} />
               <div className="mb-1 h-[26px] flex items-center justify-center" style={{ opacity: locked ? 0.35 : 1, filter: locked ? "grayscale(0.6)" : "none" }}>{icon}</div>
               <div className="text-[10px] font-semibold mb-0.5 truncate w-full" style={{ color: locked ? C.soft : C.ink }}>{item.name}</div>
@@ -1523,7 +1827,35 @@ function Character({ S, totalDone, onBuyItem, onEquipItem }) {
   const { accent, accent2 } = useAccent();
   const { stage, min, next, progress } = nextStageInfo(totalDone);
   const [pulse, setPulse] = useState(false);
-  function act(fn) { fn(); setPulse(true); setTimeout(() => setPulse(false), 500); }
+  const [burst, setBurst] = useState(null);
+  const [shake, setShake] = useState(false);
+  const [lootId, setLootId] = useState(null);
+  const [muted, setMuted] = useState(() => Sfx.isMuted());
+
+  function fire(kind, item) {
+    const rar = item ? rarityForRank(ITEMS.filter((x) => x.slot === item.slot).indexOf(item)) : null;
+    setPulse(true); setTimeout(() => setPulse(false), 500);
+    setBurst({ x: 0.36, y: 0.6, count: kind === "buy" ? 62 : 28, color: rar ? rar.color : accent, k: Date.now() });
+    if (kind === "buy") {
+      Sfx.purchase();
+      setShake(true); setTimeout(() => setShake(false), 720);
+      setLootId(item.id); setTimeout(() => setLootId(null), 900);
+    } else Sfx.equip();
+  }
+  function buy(item) {
+    if (S.cash < item.price) { Sfx.denied(); return; }
+    onBuyItem(item); fire("buy", item);
+  }
+  function equip(slot, id) {
+    onEquipItem(slot, id);
+    fire("equip", id ? ITEMS.find((i) => i.id === id) : null);
+  }
+  function toggleMute() {
+    const m = !muted;
+    setMuted(m); Sfx.setMuted(m);
+    if (!m) Sfx.tap();
+  }
+
   const energy = S.habits.length ? S.habits.filter((h) => h.doneToday).length / S.habits.length : 0;
   const stats = useMemo(() => computeCharacterStats(S, energy), [S, energy]);
   const eq = useMemo(() => resolveEquipped(S.equipped), [S.equipped]);
@@ -1534,7 +1866,8 @@ function Character({ S, totalDone, onBuyItem, onEquipItem }) {
         <div className="text-[25px] font-extrabold" style={{ color: C.ink, fontFamily: DISPLAY, letterSpacing: "-0.02em" }}>Character</div>
         <div className="text-[13px] mt-0.5" style={{ color: C.soft }}>Your habits are building this world. Drag to spin.</div>
       </div>
-      <CharacterScene S={S} stage={stage} pulse={pulse} />
+      <CharacterScene S={S} stage={stage} pulse={pulse} burst={burst} shake={shake}
+        muted={muted} onToggleMute={toggleMute} />
       <LevelHUD stage={stage} totalDone={totalDone} min={min} next={next} progress={progress} accent={accent} accent2={accent2} />
 
       <div className="flex justify-between px-5 mt-5 mb-6">
@@ -1558,7 +1891,7 @@ function Character({ S, totalDone, onBuyItem, onEquipItem }) {
         })}
       </div>
 
-      {SLOTS.map((slot) => <CollectionRow key={slot} slot={slot} S={S} stage={stage} onBuy={(item) => act(() => onBuyItem(item))} onEquip={(slot2, id) => act(() => onEquipItem(slot2, id))} />)}
+      {SLOTS.map((slot) => <CollectionRow key={slot} slot={slot} S={S} stage={stage} lootId={lootId} onBuy={buy} onEquip={equip} />)}
     </div>
   );
 }
@@ -1693,6 +2026,39 @@ function Style() {
       .emberRise{animation:emberRise linear infinite}
       @keyframes trophyGlint{0%,100%{opacity:.75;transform:scale(1)}50%{opacity:1;transform:scale(1.08)}}
       .trophyGlint{animation:trophyGlint 2.4s ease-in-out infinite}
+
+      /* ---- level-up cinematic ---- */
+      @keyframes luFlash{0%{opacity:0}6%{opacity:.85}26%{opacity:.16}70%{opacity:.1}100%{opacity:0}}
+      .luFlash{animation:luFlash 2.7s var(--soft) forwards}
+      @keyframes luBarT{0%{transform:translateY(-100%)}14%{transform:translateY(0)}84%{transform:translateY(0)}100%{transform:translateY(-100%)}}
+      .luBarT{animation:luBarT 2.7s var(--snap) forwards}
+      @keyframes luBarB{0%{transform:translateY(100%)}14%{transform:translateY(0)}84%{transform:translateY(0)}100%{transform:translateY(100%)}}
+      .luBarB{animation:luBarB 2.7s var(--snap) forwards}
+      @keyframes luScrim{0%{opacity:0}10%{opacity:1}84%{opacity:1}100%{opacity:0}}
+      .luScrim{animation:luScrim 2.7s var(--soft) forwards}
+      @keyframes luRing{0%{transform:scale(.2);opacity:0}10%{opacity:.95}100%{transform:scale(6.5);opacity:0}}
+      .luRing{animation:luRing 1.5s cubic-bezier(.1,.7,.2,1) forwards}
+      @keyframes luRay{0%{transform:rotate(var(--rot)) scaleY(0);opacity:0}18%{opacity:.75}55%{transform:rotate(var(--rot)) scaleY(1);opacity:.3}100%{transform:rotate(var(--rot)) scaleY(1);opacity:0}}
+      .luRay{animation:luRay 1.7s var(--soft) forwards}
+      @keyframes luText{0%{transform:scale(.55) translateY(16px);opacity:0;filter:blur(10px)}
+        16%{transform:scale(1.14) translateY(0);opacity:1;filter:blur(0)}
+        26%{transform:scale(1)}82%{transform:scale(1);opacity:1}100%{transform:scale(1.06);opacity:0;filter:blur(4px)}}
+      .luText{animation:luText 2.7s var(--snap) forwards}
+      @keyframes sceneShake{0%,100%{transform:translate(0,0)}
+        10%{transform:translate(-5px,3px)}22%{transform:translate(4px,-3px)}
+        34%{transform:translate(-3px,-2px)}46%{transform:translate(3px,2px)}
+        60%{transform:translate(-2px,1px)}76%{transform:translate(1px,-1px)}}
+      .sceneShake{animation:sceneShake .72s var(--soft)}
+
+      /* ---- volumetric god rays ---- */
+      @keyframes rayDrift{0%,100%{opacity:.14;transform:translateX(0) skewX(-12deg)}50%{opacity:.3;transform:translateX(7px) skewX(-12deg)}}
+      .godRay{animation:rayDrift 7s ease-in-out infinite}
+
+      /* ---- loot reveal on the item card ---- */
+      @keyframes lootPop{0%{transform:scale(1)}22%{transform:scale(1.16) rotate(-2deg)}48%{transform:scale(.97) rotate(1deg)}100%{transform:scale(1) rotate(0)}}
+      .lootPop{animation:lootPop .62s var(--spring)}
+      @keyframes lootBeam{0%{opacity:0;transform:scaleY(.3)}30%{opacity:.85}100%{opacity:0;transform:scaleY(1.5)}}
+      .lootBeam{animation:lootBeam .8s var(--soft) forwards}
 
       /* ---- motion system: press / hover / focus ---- */
       .press{transition:transform .15s var(--quick)}
