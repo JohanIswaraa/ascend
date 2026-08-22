@@ -719,67 +719,162 @@ function CharacterFigure({ outfit, headItem, aura, sidekick, tiltX = 0, tiltY = 
     </svg>
   );
 }
-function Wheel({ cx, cy, r }) {
+/* forged multi-spoke wheel with a real brake disc and caliper behind it */
+function Wheel({ cx, cy, r, spokes = 10, caliper = "#C4444B" }) {
   return (
-    <g className="wheelSpin" style={{ transformOrigin: `${cx}px ${cy}px` }}>
-      <circle cx={cx} cy={cy} r={r} fill="#111214" />
-      <circle cx={cx} cy={cy} r={r * 0.56} fill="#3A3D46" />
-      {[0, 60, 120, 180, 240, 300].map((a) => (
-        <line key={a} x1={cx} y1={cy} x2={cx} y2={cy - r * 0.5} stroke="#9EA3B0" strokeWidth="2" strokeLinecap="round" transform={`rotate(${a} ${cx} ${cy})`} />
-      ))}
-      <circle cx={cx} cy={cy} r={r * 0.16} fill="#D7DBE6" />
+    <g>
+      {/* tyre sidewall — low profile, so the rim dominates */}
+      <circle cx={cx} cy={cy} r={r} fill="#0B0C0F" />
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke="#1E2027" strokeWidth={r * 0.1} />
+      <circle cx={cx} cy={cy} r={r * 0.78} fill="#15171D" />
+      {/* drilled brake disc sits inside the rim, and does NOT spin with it */}
+      <circle cx={cx} cy={cy} r={r * 0.56} fill="#3C3F49" />
+      <circle cx={cx} cy={cy} r={r * 0.56} fill="none" stroke="#565A66" strokeWidth="0.8" />
+      <path d={`M${cx - r * 0.62} ${cy - r * 0.3} a ${r * 0.62} ${r * 0.62} 0 0 0 0 ${r * 0.6} l ${r * 0.16} 0 a ${r * 0.46} ${r * 0.46} 0 0 1 0 ${-r * 0.6} Z`} fill={caliper} />
+      <g className="wheelSpin" style={{ transformOrigin: `${cx}px ${cy}px` }}>
+        {Array.from({ length: spokes }, (_, i) => (
+          <path key={i}
+            d={`M${cx} ${cy - r * 0.14} L${cx - r * 0.09} ${cy - r * 0.72} L${cx + r * 0.09} ${cy - r * 0.72} Z`}
+            fill="#8C919E"
+            transform={`rotate(${(i * 360) / spokes} ${cx} ${cy})`} />
+        ))}
+        <circle cx={cx} cy={cy} r={r * 0.2} fill="#5A5F6B" />
+        <circle cx={cx} cy={cy} r={r * 0.2} fill="none" stroke="#9AA0AE" strokeWidth="0.7" />
+        <circle cx={cx} cy={cy} r={r * 0.07} fill="#D7DBE6" />
+      </g>
     </g>
   );
 }
 const CAR_PALETTES = [
-  { c1: "#7A808F", c2: "#454A56" },
-  { c1: "#4A5A82", c2: "#232D45" },
-  null,
-  { c1: "#1C1D24", c2: "#000000" },
+  { c1: "#8A9099", c2: "#3E434C", trim: "#C9CED8" },  /* bike   — gunmetal   */
+  { c1: "#31527E", c2: "#152238", trim: "#7FA8DC" },  /* sedan  — deep blue  */
+  { c1: "#C4262B", c2: "#5E0F12", trim: "#FF6B5C" },  /* sports — racing red */
+  { c1: "#E8B33C", c2: "#6B4A0C", trim: "#FFE08A" },  /* hyper  — liquid gold*/
 ];
 function carTierOf(id) { return { car_bike: 0, car_sedan: 1, car_sports: 2, car_super: 3 }[id] ?? 1; }
 function CarFigure({ tier, size = 120 }) {
-  const { accent, accent2 } = useAccent();
-  const pal = CAR_PALETTES[tier] || { c1: accent, c2: accent2 };
-  const gid = "carBody" + tier;
-  const cid = "carClip" + tier;
-  const bodyD = tier === 1
-    ? "M18 88 L18 62 Q18 50 32 50 L58 50 L70 30 L130 30 L142 50 L168 50 Q182 50 182 62 L182 88 Z"
-    : tier === 2
-    ? "M12 88 Q8 66 44 56 L82 34 L128 34 L172 58 Q192 66 188 88 Z"
-    : "M8 88 Q4 60 48 50 L88 22 L124 22 L184 52 Q200 62 192 88 Z";
+  const { accent } = useAccent();
+  const pal = CAR_PALETTES[tier] || CAR_PALETTES[1];
+  const gid = "carBody" + tier, cid = "carClip" + tier, glz = "carGlass" + tier;
+
+  /* real side-profile silhouettes: low nose, cabin set back, haunch over
+     the rear axle — the proportions that make a car read as fast */
+  const BODY = {
+    1: "M20 84 L20 66 Q21 56 33 53 L62 47 L84 30 Q90 26 100 26 L142 26 Q152 27 158 33 L176 50 L206 56 Q218 59 219 70 L219 84 Z",
+    2: "M14 84 L14 68 Q15 55 30 51 L60 44 L88 24 Q96 19 110 19 L146 20 Q158 22 166 30 L186 48 L212 55 Q225 59 226 71 L226 84 Z",
+    3: "M10 84 L10 70 Q11 58 26 53 L58 46 L92 22 Q102 16 118 16 L146 17 Q160 20 170 30 L196 50 L222 58 Q234 62 234 72 L234 84 Z",
+  }[tier];
+  const GLASS = {
+    1: "M70 47 L88 32 Q92 29 100 29 L138 29 Q146 30 150 35 L162 48 Z",
+    2: "M68 45 L92 27 Q99 23 110 23 L143 24 Q152 26 158 33 L174 48 Z",
+    3: "M66 47 L96 25 Q105 20 118 20 L144 21 Q155 24 162 33 L180 49 Z",
+  }[tier];
+
   return (
-    <svg width={size} height={size * 0.56} viewBox="0 0 200 112" style={{ overflow: "visible" }}>
+    <svg width={size} height={size * 0.5} viewBox="0 0 244 122" style={{ overflow: "visible" }}>
       <defs>
-        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={pal.c1} /><stop offset="1" stopColor={pal.c2} /></linearGradient>
-        {tier > 0 && <clipPath id={cid}><path d={bodyD} /></clipPath>}
+        {/* body paint: sky reflection on top, dark ground bounce below */}
+        <linearGradient id={gid} x1="0" y1="0" x2="0.15" y2="1">
+          <stop offset="0" stopColor={pal.trim} />
+          <stop offset="0.24" stopColor={pal.c1} />
+          <stop offset="0.72" stopColor={pal.c1} />
+          <stop offset="1" stopColor={pal.c2} />
+        </linearGradient>
+        <linearGradient id={glz} x1="0" y1="0" x2="0.4" y2="1">
+          <stop offset="0" stopColor="#CFE8F8" stopOpacity="0.92" />
+          <stop offset="0.5" stopColor="#5F87A8" stopOpacity="0.8" />
+          <stop offset="1" stopColor="#1B2634" stopOpacity="0.9" />
+        </linearGradient>
+        {tier > 0 && <clipPath id={cid}><path d={BODY} /></clipPath>}
       </defs>
-      <ellipse cx="100" cy="102" rx="78" ry="8" fill="#000" opacity="0.4" />
+
+      {/* ground contact shadow, tight under the sills */}
+      <ellipse cx="122" cy="108" rx="104" ry="7" fill="#000" opacity="0.5" />
+      <ellipse cx="122" cy="108" rx="64" ry="4" fill="#000" opacity="0.45" />
+
       {tier === 0 ? (
+        /* ---------- SPORT BIKE ---------- */
         <>
-          <Wheel cx={44} cy={80} r={19} />
-          <Wheel cx={156} cy={80} r={19} />
-          <path d="M44 80 L86 46 L128 50 L156 80" stroke={pal.c1} strokeWidth="7" fill="none" strokeLinecap="round" />
-          <rect x="82" y="34" width="36" height="13" rx="6" fill={pal.c1} />
-          <circle cx="118" cy="48" r="6" fill="#FFE9A8" />
+          <Wheel cx={54} cy={82} r={24} spokes={5} caliper="#C4444B" />
+          <Wheel cx={188} cy={82} r={24} spokes={5} caliper="#C4444B" />
+          <path d="M60 78 L96 48 L150 44 L186 78" stroke="#23262E" strokeWidth="5" fill="none" strokeLinecap="round" />
+          <path d="M92 52 Q118 34 156 40 L168 52 Q140 58 108 60 Z" fill={`url(#${gid})`} />
+          <path d="M92 52 Q118 34 156 40 L150 44 Q120 42 100 56 Z" fill="#fff" opacity="0.2" />
+          <path d="M62 74 Q70 52 92 50 L98 60 Q78 64 72 78 Z" fill={pal.c2} />
+          <rect x="150" y="34" width="30" height="9" rx="4" fill="#1A1C22" />
+          <path d="M64 56 L78 50 L82 58 L68 63 Z" fill="#FFE9A8" />
+          <circle cx="72" cy="57" r="3" fill="#fff" opacity="0.9" />
+          <rect x="176" y="46" width="9" height="4" rx="2" fill="#FF5C72" />
+          <path d="M96 48 L82 40" stroke="#3A3D46" strokeWidth="3" strokeLinecap="round" />
         </>
       ) : (
         <>
-          <Wheel cx={54} cy={88} r={18} />
-          <Wheel cx={148} cy={88} r={18} />
-          <path d={bodyD} fill={`url(#${gid})`} />
-          <path d={
-            tier === 1
-              ? "M38 50 L50 34 L112 34 L124 50 Z"
-              : tier === 2
-              ? "M58 56 Q76 38 112 38 L146 56 Z"
-              : "M62 50 Q80 28 118 28 L150 50 Z"
-          } fill="#8FC8E8" opacity="0.55" />
-          <rect x="14" y="70" width="10" height="6" rx="2" fill="#FFE9A8" />
-          <rect x="178" y="70" width="10" height="6" rx="2" fill="#FF5C72" />
-          {tier === 3 && <rect x="56" y="20" width="88" height="5" rx="2" fill={accent} />}
+          {/* rear wheel first so the haunch overlaps it */}
+          <Wheel cx={186} cy={84} r={tier === 3 ? 25 : 23} spokes={tier === 3 ? 12 : 10} caliper={tier === 3 ? "#F5B429" : "#C4444B"} />
+          <Wheel cx={56} cy={84} r={tier === 3 ? 25 : 23} spokes={tier === 3 ? 12 : 10} caliper={tier === 3 ? "#F5B429" : "#C4444B"} />
+
+          {/* main body */}
+          <path d={BODY} fill={`url(#${gid})`} />
+          {/* shoulder line — the crease that runs the length of the flank */}
+          <path d={tier === 3 ? "M22 62 Q110 56 226 64" : "M26 64 Q112 58 214 66"} fill="none" stroke="#fff" strokeOpacity="0.28" strokeWidth="1.6" />
+          <path d={tier === 3 ? "M22 65 Q110 59 226 67" : "M26 67 Q112 61 214 69"} fill="none" stroke="#000" strokeOpacity="0.3" strokeWidth="1.4" />
+          {/* rocker shadow along the bottom */}
+          <path d={tier === 3 ? "M18 80 L226 80 L226 84 L18 84 Z" : "M24 80 L214 80 L214 84 L24 84 Z"} fill="#000" opacity="0.34" />
+
+          {/* greenhouse */}
+          <path d={GLASS} fill={`url(#${glz})`} />
+          <path d={GLASS} fill="none" stroke="#0A0D12" strokeWidth="2" />
+          {/* windscreen glare streak */}
+          <path d={tier === 3 ? "M74 45 L100 26 L110 26 L84 45 Z" : "M76 45 L96 30 L105 30 L86 45 Z"} fill="#fff" opacity="0.3" />
+
+          {/* door shut line + handle */}
+          <path d={tier === 3 ? "M108 46 L104 78" : "M110 46 L106 78"} stroke="#000" strokeOpacity="0.35" strokeWidth="1.3" />
+          <rect x={tier === 3 ? 118 : 120} y="60" width="11" height="3" rx="1.5" fill="#0D1016" opacity="0.8" />
+
+          {/* side air intake feeding the mid engine — the hypercar signature */}
+          {tier >= 2 && (
+            <>
+              <path d={tier === 3 ? "M150 50 Q168 52 178 62 L176 72 Q160 62 146 60 Z" : "M148 52 Q164 54 172 62 L170 70 Q158 62 146 60 Z"} fill="#0A0C10" />
+              <path d={tier === 3 ? "M152 54 Q166 56 174 64" : "M150 56 Q162 58 169 64"} fill="none" stroke={pal.trim} strokeOpacity="0.5" strokeWidth="1.4" />
+            </>
+          )}
+
+          {/* front splitter + rear diffuser */}
+          <path d={tier === 3 ? "M6 84 L44 84 L42 90 L8 90 Z" : "M16 84 L48 84 L46 89 L18 89 Z"} fill="#15171D" />
+          <path d={tier === 3 ? "M198 84 L238 84 L236 92 L200 92 Z" : "M192 84 L220 84 L218 90 L194 90 Z"} fill="#15171D" />
+          {tier === 3 && [0, 1, 2, 3].map((i) => (
+            <rect key={i} x={204 + i * 8} y="84" width="2.4" height="8" fill="#2C2F38" />
+          ))}
+
+          {/* lighting: LED headlight signature + full-width tail bar */}
+          <path d={tier === 3 ? "M12 62 L34 58 L36 64 L13 68 Z" : "M20 62 L38 59 L39 65 L21 68 Z"} fill="#EAF4FF" />
+          <path d={tier === 3 ? "M12 62 L34 58 L35 61 L12 65 Z" : "M20 62 L38 59 L38 62 L20 65 Z"} fill="#fff" />
+          <rect x={tier === 3 ? 214 : 200} y="60" width={tier === 3 ? 20 : 14} height="4" rx="2" fill="#FF3B4E" />
+          <rect x={tier === 3 ? 214 : 200} y="60" width={tier === 3 ? 20 : 14} height="1.6" rx="0.8" fill="#FF8A96" />
+
+          {/* mirror on a stalk */}
+          <path d={tier === 3 ? "M96 44 L88 38 L82 40 L84 45 Z" : "M98 44 L90 39 L84 41 L86 46 Z"} fill={pal.c2} />
+
+          {/* quad exhaust + active rear wing, hypercar only */}
+          {tier === 3 && (
+            <>
+              <rect x="228" y="74" width="8" height="5" rx="2.5" fill="#0A0C10" />
+              <rect x="228" y="74" width="8" height="5" rx="2.5" fill="none" stroke="#6E7484" strokeWidth="1" />
+              {/* struts stay planted on the rear deck; only the blade pitches */}
+              <path d="M196 40 L201 40 L200 54 L195 54 Z" fill="#15171D" />
+              <path d="M226 42 L231 42 L230 56 L225 56 Z" fill="#15171D" />
+              <g className="wingRise" style={{ transformOrigin: "212px 40px" }}>
+                <path d="M186 34 L238 31 L238 40 L186 43 Z" fill={pal.c2} />
+                <path d="M186 34 L238 31 L238 34.5 L186 37.5 Z" fill={pal.trim} opacity="0.75" />
+                <path d="M186 43 L238 40 L238 41.5 L186 44.5 Z" fill="#000" opacity="0.4" />
+              </g>
+            </>
+          )}
+          {tier === 2 && <path d="M186 34 L220 31 L220 37 L186 40 Z" fill={pal.c2} />}
+
+          {/* clear-coat sweep, clipped to the paintwork */}
           <g clipPath={`url(#${cid})`}>
-            <rect x="-10" y="0" width="18" height="120" fill="rgba(255,255,255,.4)" className="carShine" />
+            <rect x="-14" y="0" width="22" height="130" fill="rgba(255,255,255,.42)" className="carShine" />
           </g>
         </>
       )}
@@ -845,6 +940,54 @@ function IsoFrame({ side, u0, u1, h0, h1, fill, frame = "#1a1a20" }) {
     </g>
   );
 }
+/* potted plant whose leaves drift, so the room is never fully still */
+function IsoPlant({ a, b, scale = 1, pot = "#8A4A32", leaf = "#3FA55C" }) {
+  const p = isoPt(a, b);
+  const s = scale;
+  return (
+    <g>
+      <path d={`M${p.x - 9 * s} ${p.y - 14 * s} L${p.x + 9 * s} ${p.y - 14 * s} L${p.x + 7 * s} ${p.y} L${p.x - 7 * s} ${p.y} Z`} fill={pot} />
+      <path d={`M${p.x - 9 * s} ${p.y - 14 * s} L${p.x + 9 * s} ${p.y - 14 * s} L${p.x + 8 * s} ${p.y - 11 * s} L${p.x - 8 * s} ${p.y - 11 * s} Z`} fill="#000" opacity="0.28" />
+      <g className="leafSway">
+        <ellipse cx={p.x} cy={p.y - 30 * s} rx={13 * s} ry={17 * s} fill={leaf} />
+        <ellipse cx={p.x - 11 * s} cy={p.y - 22 * s} rx={9 * s} ry={12 * s} fill={leaf} opacity="0.85" transform={`rotate(-32 ${p.x - 11 * s} ${p.y - 22 * s})`} />
+        <ellipse cx={p.x + 11 * s} cy={p.y - 23 * s} rx={8 * s} ry={11 * s} fill="#2F8749" transform={`rotate(30 ${p.x + 11 * s} ${p.y - 23 * s})`} />
+        <ellipse cx={p.x - 3 * s} cy={p.y - 36 * s} rx={5 * s} ry={7 * s} fill="#57C071" />
+      </g>
+    </g>
+  );
+}
+/* a mug on a surface, steaming — the smallest detail that sells "lived in" */
+function IsoMug({ a, b, h = 0, color = "#E8E4D8" }) {
+  const p = isoPt(a, b);
+  const y = p.y - h;
+  return (
+    <g>
+      {[0, 1, 2].map((i) => (
+        <ellipse key={i} className="steamRise" cx={p.x + (i - 1) * 2.5} cy={y - 9} rx="2.2" ry="3" fill="#fff" opacity="0.5" style={{ animationDelay: `${i * 1.1}s` }} />
+      ))}
+      <rect x={p.x - 4} y={y - 8} width="8" height="8" rx="1.5" fill={color} stroke="rgba(0,0,0,.45)" strokeWidth="0.8" />
+      <path d={`M${p.x + 4} ${y - 6} q4 2 0 4`} fill="none" stroke={color} strokeWidth="1.5" />
+      <ellipse cx={p.x} cy={y - 8} rx="4" ry="1.4" fill="#4A2E1C" />
+    </g>
+  );
+}
+/* wall-mounted TV playing something — flicker plus a rolling scanline */
+function IsoScreen({ side, u0, u1, h0, h1 }) {
+  const id = `scr${side}${Math.round(u0 * 100)}`;
+  return (
+    <g>
+      <polygon points={wallQuad(side, u0 - 0.012, u1 + 0.012, h0 - 4, h1 + 4)} fill="#0C0D11" />
+      <clipPath id={id}><polygon points={wallQuad(side, u0, u1, h0, h1)} /></clipPath>
+      <polygon points={wallQuad(side, u0, u1, h0, h1)} fill="#2E6BA8" className="tvFlicker" />
+      <g clipPath={`url(#${id})`}>
+        <polygon points={wallQuad(side, u0, u1, h0 + (h1 - h0) * 0.55, h1)} fill="#5AA0D8" opacity="0.55" />
+        <polygon points={wallQuad(side, u0, u1, h0, h0 + 6)} fill="#fff" opacity="0.28" className="tvScan" />
+      </g>
+      <polygon points={wallQuad(side, u0, u1, h0, h1)} fill="none" stroke="#05060A" strokeWidth="1.6" />
+    </g>
+  );
+}
 /* wall-mounted shelf with a row of little objects on it */
 function IsoShelf({ side, u0, u1, h, colors }) {
   const f = side === "left" ? leftWallPt : rightWallPt;
@@ -879,8 +1022,9 @@ function furnitureFor(propId, stage) {
           <IsoBox a0={0.06} a1={0.5} b0={0.58} b1={0.94} h={22} top="#9aa7c0" right="#4f5870" left="#657088" />
           <IsoBox a0={0.06} a1={0.24} b0={0.58} b1={0.66} h={38} top="#d8dff0" right="#8d97ae" left="#a8b1c8" />
           <IsoBox a0={0.6} a1={0.72} b0={0.16} b1={0.28} h={16} top="#6a4a30" right="#40291a" left="#553826" />
-          <circle cx={isoPt(0.66, 0.22).x} cy={isoPt(0.66, 0.22).y - 30} r="16" fill="#54B368" />
-          <circle cx={isoPt(0.66, 0.22).x - 9} cy={isoPt(0.66, 0.22).y - 39} r="11" fill="#3f8f52" />
+          <IsoMug a={0.66} b={0.22} h={16} />
+          <IsoPlant a={0.12} b={0.34} scale={0.9} />
+          <IsoScreen side="right" u0={0.34} u1={0.56} h0={54} h1={82} />
           <IsoLamp a={0.52} b={0.28} h={48} shade="#FFD9A0" flicker />
           {[0, 1, 2, 3, 4].map((i) => {
             const p = isoPt(0.3 + i * 0.09, 0.06);
@@ -902,12 +1046,16 @@ function furnitureFor(propId, stage) {
           <polygon points={wallQuad("left", 0.2, 0.52, 46, 94)} fill="#ffd79a" opacity="0.28" />
           <polygon points={wallQuad("left", 0.2, 0.52, 46, 94)} fill="none" stroke="#0009" strokeWidth="2" />
           <IsoBox a0={0.56} a1={0.72} b0={0.06} b1={0.22} h={38} top="#8a5a3a" right="#4c2f1c" left="#684226" />
-          <polygon points={wallQuad("left", 0.6, 0.7, 8, 26)} fill="#FF7A3C" opacity="0.85" className="lampFlicker" />
+          <polygon points={wallQuad("left", 0.6, 0.7, 8, 26)} fill="#4A1A08" />
+          <polygon points={wallQuad("left", 0.61, 0.69, 8, 24)} fill="#FF7A3C" className="fireLick" />
+          <polygon points={wallQuad("left", 0.625, 0.675, 8, 18)} fill="#FFD24A" className="fireLick" style={{ animationDelay: "0.4s" }} />
           <polygon points={wallQuad("left", 0.6, 0.7, 8, 26)} fill="none" stroke="#2a1006" strokeWidth="2" />
           <IsoBox a0={0.5} a1={0.86} b0={0.5} b1={0.82} h={30} top="#b28a5c" right="#674f30" left="#836345" />
           <IsoBox a0={0.5} a1={0.6} b0={0.5} b1={0.82} h={44} top="#d8b880" right="#8d6c44" left="#b3925a" />
           <IsoBox a0={0.66} a1={0.9} b0={0.12} b1={0.24} h={40} top="#232323" right="#000" left="#141414" />
-          <rect x={isoPt(0.68, 0.18).x - 15} y={isoPt(0.68, 0.18).y - 62} width="30" height="20" rx="2" fill="#8fd4ff" opacity="0.7" />
+          <IsoScreen side="right" u0={0.3} u1={0.54} h0={56} h1={86} />
+          <IsoPlant a={0.1} b={0.62} scale={0.95} pot="#6B4A2E" />
+          <IsoMug a={0.62} b={0.62} h={30} color="#D8CFC0" />
           <IsoBox a0={0.12} a1={0.22} b0={0.08} b1={0.42} h={34} top="#7a6440" right="#463726" left="#5c4a2f" />
           {[0, 1, 2, 3].map((i) => <rect key={i} x={isoPt(0.13 + i * 0.02, 0.24).x - 2} y={isoPt(0.13 + i * 0.02, 0.24).y - 34 - 12} width="4" height="12" fill={["#C4444B", "#3F8F52", "#4FA3FF", "#F5B429"][i]} />)}
           <IsoLamp a={0.32} b={0.9} h={50} shade="#FFB870" flicker />
@@ -935,6 +1083,8 @@ function furnitureFor(propId, stage) {
           <IsoBox a0={0.02} a1={0.14} b0={0.62} b1={0.74} h={10} top="#e8e2d0" right="#a8a390" left="#c4bfa8" />
           <IsoFrame side="left" u0={0.12} u1={0.34} h0={70} h1={102} fill="#2E8C9E" frame="#e8e2d0" />
           <IsoShelf side="left" u0={0.46} u1={0.66} h={72} colors={["#5CE0D8", "#e8e2d0", "#FF9E5C"]} />
+          <IsoPlant a={0.1} b={0.3} scale={1} pot="#D8CFB8" leaf="#3FBF6A" />
+          <IsoMug a={0.2} b={0.7} h={13} color="#F0ECE0" />
           {trophyShelf}
         </>
       );
@@ -960,9 +1110,11 @@ function furnitureFor(propId, stage) {
           {[0, 1].map((i) => (
             <rect key={i} x={isoPt(i ? 0.86 : 0.1, 0.1).x - 12} y={isoPt(i ? 0.86 : 0.1, 0.1).y - 92 - 10} width="24" height="10" rx="2" fill="#F0C25A" />
           ))}
-          <IsoFrame side="right" u0={0.3} u1={0.5} h0={72} h1={108} fill="#5a2f65" frame="#D8B45E" />
-          <IsoFrame side="right" u0={0.58} u1={0.72} h0={80} h1={106} fill="#3E4E8E" frame="#D8B45E" />
-          <IsoShelf side="left" u0={0.62} u1={0.82} h={70} colors={["#F5D77A", "#B968FF", "#5CE0D8"]} />
+          <IsoFrame side="right" u0={0.3} u1={0.5} h0={66} h1={98} fill="#5a2f65" frame="#D8B45E" />
+          <IsoFrame side="right" u0={0.58} u1={0.72} h0={72} h1={96} fill="#3E4E8E" frame="#D8B45E" />
+          <IsoShelf side="left" u0={0.62} u1={0.82} h={68} colors={["#F5D77A", "#B968FF", "#5CE0D8"]} />
+          <IsoPlant a={0.12} b={0.32} scale={1.05} pot="#B8983F" leaf="#2F8749" />
+          <IsoMug a={0.24} b={0.74} h={16} color="#F0E4B8" />
           {trophyShelf}
         </>
       );
@@ -974,6 +1126,8 @@ function furnitureFor(propId, stage) {
           <polygon points={wallQuad("right", 0.3, 0.6, 40, 82)} fill="#3a4550" opacity="0.4" />
           <polygon points={wallQuad("right", 0.3, 0.6, 40, 82)} fill="none" stroke="#0008" strokeWidth="2" />
           <IsoBox a0={0.66} a1={0.8} b0={0.66} b1={0.8} h={20} top="#3a3b47" right="#1e1f26" left="#2a2b33" />
+          <IsoMug a={0.73} b={0.73} h={20} color="#9AA0AE" />
+          <IsoPlant a={0.12} b={0.36} scale={0.85} pot="#4A4B55" leaf="#3A7A4C" />
           {trophyShelf}
         </>
       );
@@ -2170,6 +2324,26 @@ function Style() {
       .bootScan{animation:bootScan .78s var(--soft) forwards}
       @keyframes bootFade{0%{opacity:0;filter:blur(4px)}45%{opacity:1;filter:blur(0)}75%{opacity:1}100%{opacity:0}}
       .bootFade{animation:bootFade .78s var(--snap) forwards}
+
+      /* ---- the room is alive: screens, plants, steam, fans ---- */
+      @keyframes tvFlicker{0%,100%{opacity:.82}12%{opacity:.62}26%{opacity:.95}41%{opacity:.7}58%{opacity:.9}73%{opacity:.66}88%{opacity:.88}}
+      .tvFlicker{animation:tvFlicker 3.1s steps(1,end) infinite}
+      @keyframes tvScan{0%{transform:translateY(-100%)}100%{transform:translateY(400%)}}
+      .tvScan{animation:tvScan 2.6s linear infinite}
+      @keyframes leafSway{0%,100%{transform:rotate(-2.5deg)}50%{transform:rotate(2.5deg)}}
+      .leafSway{animation:leafSway 4.6s ease-in-out infinite;transform-box:fill-box;transform-origin:50% 100%}
+      @keyframes steamRise{0%{transform:translateY(0) scale(.7);opacity:0}18%{opacity:.55}100%{transform:translateY(-22px) scale(1.5);opacity:0}}
+      .steamRise{animation:steamRise 3.4s ease-out infinite}
+      @keyframes fanSpin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+      .fanSpin{animation:fanSpin 1.5s linear infinite;transform-box:fill-box;transform-origin:50% 50%}
+      @keyframes clockTick{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+      .clockTick{animation:clockTick 12s steps(12,end) infinite;transform-box:fill-box;transform-origin:50% 100%}
+      @keyframes fireLick{0%,100%{transform:scaleY(1) scaleX(1);opacity:.85}30%{transform:scaleY(1.22) scaleX(.92);opacity:1}62%{transform:scaleY(.92) scaleX(1.06);opacity:.78}}
+      .fireLick{animation:fireLick 1.3s ease-in-out infinite;transform-box:fill-box;transform-origin:50% 100%}
+
+      /* active aero: the wing settles, then trims itself on the straight */
+      @keyframes wingRise{0%,58%{transform:rotate(0deg) translateY(0)}72%{transform:rotate(-9deg) translateY(-2px)}88%{transform:rotate(-9deg) translateY(-2px)}100%{transform:rotate(0deg) translateY(0)}}
+      .wingRise{animation:wingRise 7s var(--soft) infinite}
 
       /* ---- car showroom shine ---- */
       @keyframes carShine{0%{transform:translateX(-20px) skewX(-18deg);opacity:0}12%{opacity:.55}30%{opacity:.55}45%{transform:translateX(210px) skewX(-18deg);opacity:0}100%{transform:translateX(210px) skewX(-18deg);opacity:0}}
