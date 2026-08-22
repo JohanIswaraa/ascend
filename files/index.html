@@ -113,6 +113,9 @@ const DIFF_MULT = { light: 0.7, standard: 1, hard: 1.4 };
 const reward = (base, streak, difficulty) => Math.round(base * multiplier(streak) * (DIFF_MULT[difficulty] || 1));
 const BASE_PRICE = 100;
 const priceBumpPct = (h) => 0.006 * (h.base / 15) * multiplier(h.streak) * (DIFF_MULT[h.difficulty] || 1);
+/* skipping a habit costs what completing it would have paid, minus the streak
+   bonus you no longer hold — so a missed day always drags ISWR down */
+const missDropPct = (h) => 0.006 * (h.base / 15) * (DIFF_MULT[h.difficulty] || 1);
 const ASSET_BUMP = 1.0015;
 const ASSET_DROP = 0.9985;
 
@@ -219,21 +222,31 @@ function closeDay(s, dateStr) {
     const hs = h.doneToday ? h.streak : 0;
     return { ...h, streak: hs, best: Math.max(h.best || 0, hs), log: h.doneToday ? [...(h.log || []), dateStr].slice(-60) : (h.log || []), doneToday: false };
   });
-  let price = s.stock.price;
-  if (total > 0) { if (done === total) price *= 1.01; else if (done === 0) price *= 0.97; }
-  price = Math.round(price * 100) / 100;
+  const openPrice = s.stock.price;
+  let price = openPrice;
+  if (total > 0) {
+    /* every habit you skipped drags the price down by the same weight it
+       would have lifted it — the mirror of priceBumpPct on completion */
+    s.habits.filter((h) => !h.doneToday).forEach((h) => { price *= 1 - missDropPct(h); });
+    if (done === total) price *= 1.01;
+    else if (done === 0) price *= 0.97;
+  }
+  price = Math.max(1, Math.round(price * 100) / 100);
   const stock = { ...s.stock, price, history: [...s.stock.history, { date: dateStr, price }].slice(-180) };
   const state = { ...s, streak, bestStreakEver, dayLog, habits, stock, lastDate: dateStr };
-  const info = { date: dateStr, done, total, streakBroken: done === 0, price };
+  const info = { date: dateStr, done, total, streakBroken: done === 0, price, movePct: openPrice > 0 ? (price / openPrice - 1) * 100 : 0 };
   return { state, info };
 }
 function rollForward(s) {
   let cur = s, info = null, days = 0;
+  const startPrice = s.stock.price;
   const el = Math.min(diffDays(s.lastDate, todayStr()), 60);
   for (let i = 0; i < el; i++) {
     const r = closeDay(cur, addDays(s.lastDate, i + 1));
     cur = r.state; info = r.info; days++;
   }
+  /* report the move across the whole gap, not just the final day */
+  if (info && startPrice > 0) info = { ...info, movePct: (info.price / startPrice - 1) * 100 };
   return { state: cur, info, days };
 }
 function hydrate(saved) {
@@ -522,6 +535,29 @@ function IsoLamp({ a, b, h = 44, shade, flicker }) {
     </g>
   );
 }
+/* framed art / poster hung flat on either wall */
+function IsoFrame({ side, u0, u1, h0, h1, fill, frame = "#1a1a20" }) {
+  return (
+    <g>
+      <polygon points={wallQuad(side, u0, u1, h0, h1)} fill={frame} />
+      <polygon points={wallQuad(side, u0 + 0.012, u1 - 0.012, h0 + 5, h1 - 5)} fill={fill} />
+    </g>
+  );
+}
+/* wall-mounted shelf with a row of little objects on it */
+function IsoShelf({ side, u0, u1, h, colors }) {
+  const f = side === "left" ? leftWallPt : rightWallPt;
+  return (
+    <g>
+      <polygon points={wallQuad(side, u0, u1, h, h + 4)} fill="#6b5738" stroke="rgba(0,0,0,.5)" strokeWidth="1" />
+      {colors.map((c, i) => {
+        const u = u0 + ((i + 0.5) / colors.length) * (u1 - u0);
+        const p = f(u, h + 4);
+        return <rect key={i} x={p.x - 2.5} y={p.y - 11} width="5" height="11" fill={c} stroke="rgba(0,0,0,.45)" strokeWidth="0.8" />;
+      })}
+    </g>
+  );
+}
 function furnitureFor(propId, stage) {
   const top = leftWallPt(1, 0);
   const trophyShelf = stage >= 10 && (
@@ -550,6 +586,11 @@ function furnitureFor(propId, stage) {
             return <circle key={i} className="twinkle2" cx={p.x} cy={p.y - 96} r="2.4" fill="#FFD9A0" style={{ animationDelay: `${i * 0.25}s` }} />;
           })}
           <IsoBox a0={0.78} a1={0.9} b0={0.68} b1={0.8} h={14} top="#c9a45a" right="#7a5f30" left="#a17f42" />
+          <IsoFrame side="left" u0={0.1} u1={0.28} h0={72} h1={106} fill="#3E6E8E" />
+          <IsoFrame side="left" u0={0.34} u1={0.46} h0={80} h1={104} fill="#8A5A9E" />
+          <IsoShelf side="right" u0={0.7} u1={0.92} h={68} colors={["#E85D75", "#54B368", "#4FA3FF", "#F5B429"]} />
+          <circle cx={rightWallPt(0.16, 88).x} cy={rightWallPt(0.16, 88).y} r="8" fill="#E8E4D8" stroke="#1a1a20" strokeWidth="1.5" />
+          <line x1={rightWallPt(0.16, 88).x} y1={rightWallPt(0.16, 88).y} x2={rightWallPt(0.16, 88).x + 4} y2={rightWallPt(0.16, 88).y - 3} stroke="#1a1a20" strokeWidth="1.2" />
           {trophyShelf}
         </>
       );
@@ -569,6 +610,9 @@ function furnitureFor(propId, stage) {
           <IsoBox a0={0.12} a1={0.22} b0={0.08} b1={0.42} h={34} top="#7a6440" right="#463726" left="#5c4a2f" />
           {[0, 1, 2, 3].map((i) => <rect key={i} x={isoPt(0.13 + i * 0.02, 0.24).x - 2} y={isoPt(0.13 + i * 0.02, 0.24).y - 34 - 12} width="4" height="12" fill={["#C4444B", "#3F8F52", "#4FA3FF", "#F5B429"][i]} />)}
           <IsoLamp a={0.32} b={0.9} h={50} shade="#FFB870" flicker />
+          <IsoFrame side="right" u0={0.32} u1={0.5} h0={74} h1={106} fill="#6B8E4E" frame="#5a4429" />
+          <IsoShelf side="left" u0={0.08} u1={0.3} h={74} colors={["#C4444B", "#E8B25C", "#4FA3FF"]} />
+          <IsoShelf side="left" u0={0.08} u1={0.3} h={98} colors={["#3F8F52", "#B968FF", "#E8E4D8"]} />
           {trophyShelf}
         </>
       );
@@ -588,6 +632,8 @@ function furnitureFor(propId, stage) {
           <IsoLamp a={0.9} b={0.42} h={54} shade="#FF9E5C" flicker />
           <IsoLamp a={0.4} b={0.06} h={54} shade="#FF9E5C" flicker />
           <IsoBox a0={0.02} a1={0.14} b0={0.62} b1={0.74} h={10} top="#e8e2d0" right="#a8a390" left="#c4bfa8" />
+          <IsoFrame side="left" u0={0.12} u1={0.34} h0={70} h1={102} fill="#2E8C9E" frame="#e8e2d0" />
+          <IsoShelf side="left" u0={0.46} u1={0.66} h={72} colors={["#5CE0D8", "#e8e2d0", "#FF9E5C"]} />
           {trophyShelf}
         </>
       );
@@ -613,6 +659,9 @@ function furnitureFor(propId, stage) {
           {[0, 1].map((i) => (
             <rect key={i} x={isoPt(i ? 0.86 : 0.1, 0.1).x - 12} y={isoPt(i ? 0.86 : 0.1, 0.1).y - 92 - 10} width="24" height="10" rx="2" fill="#F0C25A" />
           ))}
+          <IsoFrame side="right" u0={0.3} u1={0.5} h0={72} h1={108} fill="#5a2f65" frame="#D8B45E" />
+          <IsoFrame side="right" u0={0.58} u1={0.72} h0={80} h1={106} fill="#3E4E8E" frame="#D8B45E" />
+          <IsoShelf side="left" u0={0.62} u1={0.82} h={70} colors={["#F5D77A", "#B968FF", "#5CE0D8"]} />
           {trophyShelf}
         </>
       );
@@ -745,6 +794,7 @@ function Terra() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [completeTick, setCompleteTick] = useState(0);
   const [booting, setBooting] = useState(true);
+  const [pressedTab, setPressedTab] = useState(null);
   const stateRef = useRef(S);
   useEffect(() => { stateRef.current = S; }, [S]);
 
@@ -877,7 +927,14 @@ function Terra() {
             {TABS.map(([key, label, Icon]) => {
               const on = tab === key;
               return (
-                <button key={key} onClick={() => setTab(key)} className="relative flex-1 flex flex-col items-center gap-0.5 py-2 active:scale-90 press">
+                <button key={key} type="button"
+                  onPointerDown={() => setPressedTab(key)}
+                  onPointerUp={() => setPressedTab(null)}
+                  onPointerCancel={() => setPressedTab(null)}
+                  onPointerLeave={() => setPressedTab(null)}
+                  onClick={(e) => { e.currentTarget.blur(); setPressedTab(null); setTab(key); }}
+                  className="relative flex-1 flex flex-col items-center gap-0.5 py-2 navBtn"
+                  style={{ transform: pressedTab === key ? "scale(0.9)" : "scale(1)", transition: "transform .15s var(--quick)" }}>
                   <Icon size={19} color={on ? activeTheme.accent : C.soft} strokeWidth={on ? 2.6 : 2} />
                   <span className="text-[9px] font-bold" style={{ color: on ? activeTheme.accent : C.soft, fontFamily: MONO, letterSpacing: "0.02em" }}>{label}</span>
                 </button>
@@ -1012,15 +1069,21 @@ function RolloverToast({ info, onDismiss }) {
   useEffect(() => { const id = requestAnimationFrame(() => setShow(true)); return () => cancelAnimationFrame(id); }, []);
   function dismiss() { setShow(false); setTimeout(onDismiss, 220); }
   useEffect(() => { const id = setTimeout(dismiss, 6000); return () => clearTimeout(id); }, []);
-  const priceLine = ` ISWR closed $${info.price.toFixed(2)}.`;
-  const msg = (info.multi
+  const move = info.movePct || 0;
+  const moveTint = move > 0.001 ? C.good : move < -0.001 ? C.ember : C.soft;
+  const priceLine = ` ISWR $${info.price.toFixed(2)}`;
+  const msg = info.multi
     ? `Welcome back — ${info.days} day${info.days === 1 ? "" : "s"} passed while you were away.`
     : info.streakBroken ? "Streak reset — yesterday went untended."
-    : `Yesterday: ${info.done}/${info.total} tended.`) + priceLine;
+    : `Yesterday: ${info.done}/${info.total} tended.`;
   return (
     <div onClick={dismiss} className="mb-2 px-4 py-3 rounded-2xl flex items-center gap-2.5 active:scale-[0.98] press" style={{ background: C.surf2, border: `1px solid ${C.line}`, transform: show ? "translateY(0)" : "translateY(-16px)", opacity: show ? 1 : 0, transition: "transform .3s var(--snap), opacity .24s var(--snap)" }}>
       <span className="text-[16px]">{info.streakBroken ? "💤" : "🔔"}</span>
-      <span className="text-[12.5px] flex-1" style={{ color: C.ink }}>{msg}</span>
+      <span className="text-[12.5px] flex-1" style={{ color: C.ink }}>
+        {msg}
+        <span style={{ color: moveTint, fontFamily: MONO, fontWeight: 700 }}>{priceLine}</span>
+        <span style={{ color: moveTint, fontFamily: MONO, fontWeight: 700 }}>{` ${move >= 0 ? "▲" : "▼"}${Math.abs(move).toFixed(2)}%`}</span>
+      </span>
     </div>
   );
 }
@@ -1634,7 +1697,15 @@ function Style() {
       /* ---- motion system: press / hover / focus ---- */
       .press{transition:transform .15s var(--quick)}
       .hoverLift{transition:transform .18s var(--snap), border-color .18s var(--snap), filter .18s var(--snap)}
-      @media (hover:hover){ .hoverLift:hover{transform:translateY(-2px); filter:brightness(1.06)} }
+      @media (hover:hover) and (pointer:fine){ .hoverLift:hover{transform:translateY(-2px); filter:brightness(1.06)} }
+      /* touch devices keep :hover/:focus latched after a tap — never style them */
+      @media (hover:none){
+        .hoverLift:hover,.hoverLift:focus,.navBtn:hover,.navBtn:focus{transform:none!important;filter:none!important}
+        button:focus,button:active{outline:none!important}
+      }
+      .navBtn{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+      .navBtn:focus{outline:none}
+      .navBtn:focus-visible{outline:2px solid rgba(124,92,255,.7);outline-offset:-2px;border-radius:14px}
       .focusRing{transition:border-color .15s var(--quick), box-shadow .15s var(--quick)}
       .focusRing:focus{box-shadow:0 0 0 3px rgba(124,92,255,.28)}
 
