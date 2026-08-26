@@ -137,30 +137,52 @@ const THEMES = [
   { id: "emerald", name: "Jade", accent: "#2ED573", accent2: "#1CB85E" },
 ];
 
+/* every item carries an `art` key that selects a drawn vector, never an emoji */
 const ITEMS = [
-  { id: "outfit_formal", slot: "outfit", name: "Formal", c1: "#1F2A44", c2: "#0F1626", price: 200 },
-  { id: "outfit_athletic", slot: "outfit", name: "Athletic", c1: "#C23B4D", c2: "#7A1F2B", price: 180 },
-  { id: "outfit_gold", slot: "outfit", name: "Street Gold", c1: "#3A3F4E", c2: "#B98A2E", price: 500 },
-  { id: "hat_cap", slot: "head", name: "Cap", emoji: "🧢", price: 80 },
-  { id: "hat_top", slot: "head", name: "Top Hat", emoji: "🎩", price: 150 },
-  { id: "hat_crown", slot: "head", name: "Crown", emoji: "👑", price: 400 },
-  { id: "aura_halo", slot: "aura", name: "Halo", style: "halo", price: 120 },
-  { id: "aura_flame", slot: "aura", name: "Flame", style: "flame", price: 220 },
-  { id: "aura_stars", slot: "aura", name: "Starlight", style: "stars", price: 320 },
-  { id: "pet_bird", slot: "sidekick", name: "Sparrow", emoji: "🐦", price: 150 },
-  { id: "pet_butterfly", slot: "sidekick", name: "Butterfly", emoji: "🦋", price: 150 },
-  { id: "pet_dragon", slot: "sidekick", name: "Dragon", emoji: "🐉", price: 600 },
-  { id: "car_bike", slot: "car", name: "Motorbike", emoji: "🏍️", price: 300 },
-  { id: "car_sedan", slot: "car", name: "Sedan", emoji: "🚗", price: 800 },
-  { id: "car_sports", slot: "car", name: "Sports Car", emoji: "🏎️", price: 2000 },
-  { id: "car_super", slot: "car", name: "Hypercar", emoji: "🚀", price: 5000 },
-  { id: "prop_apt", slot: "property", name: "Apartment", emoji: "🏢", price: 1500 },
-  { id: "prop_house", slot: "property", name: "House", emoji: "🏡", price: 4000 },
-  { id: "prop_villa", slot: "property", name: "Villa", emoji: "🏖️", price: 9000 },
-  { id: "prop_mansion", slot: "property", name: "Mansion", emoji: "🏰", price: 18000 },
+  { id: "outfit_formal", slot: "outfit", name: "Tailored", art: "suit", c1: "#1F2A44", c2: "#0F1626", price: 200 },
+  { id: "outfit_athletic", slot: "outfit", name: "Athletic", art: "hoodie", c1: "#C23B4D", c2: "#7A1F2B", price: 180 },
+  { id: "outfit_gold", slot: "outfit", name: "Street Gold", art: "bomber", c1: "#3A3F4E", c2: "#B98A2E", price: 500 },
+  { id: "outfit_noir", slot: "outfit", name: "Noir Coat", art: "coat", c1: "#23252E", c2: "#101116", price: 1400 },
+
+  { id: "hat_cap", slot: "head", name: "Cap", art: "cap", c1: "#2E6BA8", price: 80 },
+  { id: "hat_beanie", slot: "head", name: "Beanie", art: "beanie", c1: "#8A4A32", price: 140 },
+  { id: "hat_top", slot: "head", name: "Top Hat", art: "tophat", c1: "#16171D", price: 420 },
+  { id: "hat_crown", slot: "head", name: "Crown", art: "crown", c1: "#E0B75F", price: 2600 },
+
+  { id: "watch_field", slot: "watch", name: "Field", art: "watch", c1: "#5A6473", c2: "#2C333F", price: 260 },
+  { id: "watch_diver", slot: "watch", name: "Diver", art: "watch", c1: "#2E6BA8", c2: "#14304C", price: 900 },
+  { id: "watch_chrono", slot: "watch", name: "Chronograph", art: "watch", c1: "#C9CED8", c2: "#6A7280", price: 3400 },
+  { id: "watch_tourb", slot: "watch", name: "Tourbillon", art: "watch", c1: "#E0B75F", c2: "#8A6A20", price: 14000 },
+
+  { id: "aura_halo", slot: "aura", name: "Halo", art: "halo", style: "halo", c1: "#FF5C72", price: 120 },
+  { id: "aura_flame", slot: "aura", name: "Flame", art: "flame", style: "flame", c1: "#FF7A3C", price: 220 },
+  { id: "aura_stars", slot: "aura", name: "Starlight", art: "stars", style: "stars", c1: "#F5D77A", price: 320 },
+
+  { id: "pet_bird", slot: "sidekick", name: "Sparrow", art: "bird", c1: "#8A93A5", price: 150 },
+  { id: "pet_butterfly", slot: "sidekick", name: "Butterfly", art: "butterfly", c1: "#4FA3FF", price: 150 },
+  { id: "pet_dragon", slot: "sidekick", name: "Dragon", art: "dragon", c1: "#3FA55C", price: 600 },
+
+  { id: "car_bike", slot: "car", name: "Motorbike", art: "car", price: 300 },
+  { id: "car_sedan", slot: "car", name: "Sedan", art: "car", price: 800 },
+  { id: "car_sports", slot: "car", name: "Sports Car", art: "car", price: 2000 },
+  { id: "car_super", slot: "car", name: "Hypercar", art: "car", price: 5000 },
+  { id: "car_yacht", slot: "car", name: "Yacht", art: "yacht", c1: "#E8ECF2", c2: "#8A93A5", price: 26000 },
+  { id: "car_jet", slot: "car", name: "Private Jet", art: "jet", c1: "#DDE3EC", c2: "#7C8697", price: 68000 },
+
+  { id: "prop_apt", slot: "property", name: "Apartment", art: "tower", c1: "#6C7690", price: 1500 },
+  { id: "prop_house", slot: "property", name: "House", art: "house", c1: "#C48A3D", price: 4000 },
+  { id: "prop_villa", slot: "property", name: "Villa", art: "villa", c1: "#5CE0D8", price: 9000 },
+  { id: "prop_mansion", slot: "property", name: "Mansion", art: "mansion", c1: "#F0C25A", price: 18000 },
+  { id: "prop_penthouse", slot: "property", name: "Penthouse", art: "penthouse", c1: "#9FB6D8", price: 46000 },
+  { id: "prop_island", slot: "property", name: "Private Island", art: "island", c1: "#3FBF6A", price: 150000 },
+
+  { id: "art_abstract", slot: "art", name: "Abstract No.1", art: "artAbstract", c1: "#B968FF", price: 700 },
+  { id: "art_horizon", slot: "art", name: "Horizon", art: "artHorizon", c1: "#FF9E5C", price: 2800 },
+  { id: "art_bust", slot: "art", name: "Marble Bust", art: "artBust", c1: "#E8ECF2", price: 11000 },
+  { id: "art_genesis", slot: "art", name: "Genesis Block", art: "artGenesis", c1: "#F5B429", price: 55000 },
 ];
-const SLOTS = ["outfit", "head", "aura", "sidekick", "car", "property"];
-const SLOT_LABELS = { outfit: "Apparel", head: "Headwear", aura: "Signature", sidekick: "Companion", car: "Vehicles", property: "Real Estate" };
+const SLOTS = ["outfit", "head", "watch", "aura", "sidekick", "car", "property", "art"];
+const SLOT_LABELS = { outfit: "Apparel", head: "Headwear", watch: "Timepieces", aura: "Signature", sidekick: "Companion", car: "Vehicles", property: "Real Estate", art: "Fine Art" };
 const STAGE_THRESH = [0, 6, 14, 24, 36, 50, 68, 90, 116, 146, 180, 220, 265, 315, 370, 430, 495, 565, 640, 720, 805, 895, 990, 1090, 1195];
 function stageFor(totalDone) { let s = 1; for (let i = 0; i < STAGE_THRESH.length; i++) if (totalDone >= STAGE_THRESH[i]) s = i + 1; return s; }
 function nextStageInfo(totalDone) {
@@ -170,23 +192,35 @@ function nextStageInfo(totalDone) {
   const progress = next != null ? Math.min(1, (totalDone - min) / (next - min)) : 1;
   return { stage, min, next, progress };
 }
-/* membership tiers — the card material upgrades as the account matures */
+/* Membership tiers are earned by net worth, not by grinding levels —
+   the card upgrades because the account did. */
 const RANK_TIERS = [
-  { min: 1, name: "STARTER", metal: ["#39404F", "#1A1E27"], foil: "#7C879C", ink: "#D2D8E4", holo: false },
-  { min: 4, name: "STEEL", metal: ["#7C8697", "#333944"], foil: "#E2E8F2", ink: "#F8FAFD", holo: false },
-  { min: 8, name: "GOLD", metal: ["#E0B75F", "#8A6A20"], foil: "#FFF2CB", ink: "#3A2C06", holo: false },
-  { min: 12, name: "PLATINUM", metal: ["#EDF1F7", "#A9B2C1"], foil: "#FFFFFF", ink: "#232935", holo: true },
-  { min: 17, name: "OBSIDIAN", metal: ["#1D2028", "#050609"], foil: "#96ACFF", ink: "#EEF1F8", holo: true },
-  { min: 22, name: "FOUNDER", metal: ["#14121C", "#000000"], foil: "#FFFFFF", ink: "#FFFFFF", holo: true },
+  { at: 0, name: "STARTER", metal: ["#39404F", "#1A1E27"], foil: "#7C879C", ink: "#D2D8E4", holo: false },
+  { at: 750, name: "STEEL", metal: ["#7C8697", "#333944"], foil: "#E2E8F2", ink: "#F8FAFD", holo: false },
+  { at: 3500, name: "GOLD", metal: ["#E0B75F", "#8A6A20"], foil: "#FFF2CB", ink: "#3A2C06", holo: false },
+  { at: 12000, name: "PLATINUM", metal: ["#EDF1F7", "#A9B2C1"], foil: "#FFFFFF", ink: "#232935", holo: true },
+  { at: 40000, name: "OBSIDIAN", metal: ["#1D2028", "#050609"], foil: "#96ACFF", ink: "#EEF1F8", holo: true },
+  { at: 120000, name: "FOUNDER", metal: ["#14121C", "#000000"], foil: "#FFFFFF", ink: "#FFFFFF", holo: true },
 ];
-function rankName(stage) { let n = RANK_TIERS[0].name; for (const r of RANK_TIERS) if (stage >= r.min) n = r.name; return n; }
-function cardTier(stage) { let t = RANK_TIERS[0]; for (const r of RANK_TIERS) if (stage >= r.min) t = r; return t; }
-/* holdings are graded like credit instruments, not loot */
+function netWorthOf(S) {
+  const held = ITEMS.filter((i) => S.itemsOwned.includes(i.id)).reduce((s, i) => s + i.price, 0);
+  return Math.round(S.cash + held + S.stock.shares * S.stock.price);
+}
+function tierIndexFor(nw) { let n = 0; RANK_TIERS.forEach((r, i) => { if (nw >= r.at) n = i; }); return n; }
+function cardTier(nw) { return RANK_TIERS[tierIndexFor(nw)]; }
+function rankName(nw) { return cardTier(nw).name; }
+function nextTierInfo(nw) {
+  const i = tierIndexFor(nw);
+  const cur = RANK_TIERS[i], nxt = RANK_TIERS[i + 1] || null;
+  const progress = nxt ? Math.min(1, (nw - cur.at) / (nxt.at - cur.at)) : 1;
+  return { index: i, tier: cur, next: nxt, progress, toGo: nxt ? nxt.at - nw : 0 };
+}
+/* holdings are graded like credit instruments, and unlock by tier */
 const RARITY = [
-  { key: "standard", label: "Standard", grade: "BBB", color: "#8C93A5", minStage: 1 },
-  { key: "premium", label: "Premium", grade: "A", color: "#4FA3FF", minStage: 3 },
-  { key: "elite", label: "Elite", grade: "AA", color: "#B968FF", minStage: 7 },
-  { key: "reserve", label: "Reserve", grade: "AAA", color: "#F5B429", minStage: 12 },
+  { key: "standard", label: "Standard", grade: "BBB", color: "#8C93A5", minTier: 0 },
+  { key: "premium", label: "Premium", grade: "A", color: "#4FA3FF", minTier: 1 },
+  { key: "elite", label: "Elite", grade: "AA", color: "#B968FF", minTier: 2 },
+  { key: "reserve", label: "Reserve", grade: "AAA", color: "#F5B429", minTier: 3 },
 ];
 function rarityForRank(rank) { return RARITY[Math.min(rank, RARITY.length - 1)]; }
 function resolveEquipped(equipped) {
@@ -260,7 +294,7 @@ function hydrate(saved) {
     habits: saved.habits ?? START,
     theme: saved.theme ?? "violet",
     itemsOwned: saved.itemsOwned ?? [],
-    equipped: saved.equipped ?? { outfit: null, head: null, aura: null, sidekick: null, car: null, property: null },
+    equipped: saved.equipped ?? { outfit: null, head: null, watch: null, aura: null, sidekick: null, car: null, property: null, art: null },
     assets: saved.assets ?? START_ASSETS,
     dayLog: saved.dayLog ?? [],
     journal: saved.journal ?? {}, lastDate: saved.lastDate || todayStr(),
@@ -457,14 +491,14 @@ function LevelUpCinematic({ data, onDone }) {
       {/* scrim keeps the rank type legible over whatever screen you were on */}
       <div className="absolute luScrim" style={{ left: "50%", top: "50%", width: 320, height: 320, marginLeft: -160, marginTop: -160, background: "radial-gradient(circle, rgba(4,4,9,.92) 0%, rgba(4,4,9,.7) 46%, transparent 72%)" }} />
       <div className="relative text-center luText px-4">
-        <div className="text-[10px] font-black" style={{ color: accent, fontFamily: MONO, letterSpacing: "0.55em", textIndent: "0.55em" }}>LEVEL UP</div>
-        <div className="text-[54px] font-extrabold leading-none my-1" style={{ fontFamily: DISPLAY, color: "#fff", letterSpacing: "-0.04em", textShadow: `0 0 34px ${accent}, 0 0 70px ${accent}88` }}>
-          {String(data.stage).padStart(2, "0")}
+        <div className="text-[10px] font-black" style={{ color: accent, fontFamily: MONO, letterSpacing: "0.5em", textIndent: "0.5em" }}>TIER UNLOCKED</div>
+        <div className="text-[40px] font-extrabold leading-none my-1.5" style={{ fontFamily: DISPLAY, color: "#fff", letterSpacing: "-0.02em", textShadow: `0 0 34px ${accent}, 0 0 70px ${accent}88` }}>
+          {data.tier}
         </div>
-        <div className="text-[14px] font-black" style={{ color: "#fff", fontFamily: MONO, letterSpacing: "0.34em", textIndent: "0.34em" }}>{data.rank}</div>
+        <div className="text-[10px] font-black" style={{ color: "#fff", fontFamily: MONO, letterSpacing: "0.3em", textIndent: "0.3em", opacity: 0.8 }}>CARD UPGRADED</div>
         {data.unlocked > 0 && (
           <div className="mt-2.5 inline-block px-2.5 py-1 rounded-md text-[9.5px] font-bold" style={{ background: "rgba(0,0,0,.55)", border: `1px solid ${accent}66`, color: accent, fontFamily: MONO, letterSpacing: "0.1em" }}>
-            +{data.unlocked} ITEM{data.unlocked === 1 ? "" : "S"} UNLOCKED
+            +{data.unlocked} HOLDING{data.unlocked === 1 ? "" : "S"} UNLOCKED
           </div>
         )}
       </div>
@@ -1350,9 +1384,10 @@ function timeOfDayLight() {
    INVESTOR CARD — the membership tier made physical. Tilt-reactive
    metal with a holographic foil that only the upper tiers unlock.
    ================================================================== */
-function InvestorCard({ S, stage, next, min, totalDone, progress, pulse, burst, shake, muted, onToggleMute }) {
-  const { accent, accent2 } = useAccent();
-  const tier = cardTier(stage);
+function InvestorCard({ S, netWorth, tierInfo, pulse, burst, shake, muted, onToggleMute }) {
+  const { accent } = useAccent();
+  const tier = tierInfo.tier;
+  const progress = tierInfo.progress;
   const eq = useMemo(() => resolveEquipped(S.equipped), [S.equipped]);
   const { t, ref, handlers } = useTilt();
   const [poke, setPoke] = useState(false);
@@ -1362,8 +1397,8 @@ function InvestorCard({ S, stage, next, min, totalDone, progress, pulse, burst, 
   }
   /* tilt magnitude drives how hard the foil catches the light */
   const mag = Math.min(1, Math.hypot(t.x, t.y) * 1.5);
-  const cur = totalDone - min, span = next != null ? next - min : cur;
   const since = (S.dayLog && S.dayLog.length ? S.dayLog[0].date : S.lastDate || todayStr()).slice(0, 4);
+  const shownNW = useCount(netWorth);
 
   return (
     <div className="px-4" style={{ perspective: "1100px" }}>
@@ -1450,26 +1485,22 @@ function InvestorCard({ S, stage, next, min, totalDone, progress, pulse, burst, 
           </div>
 
           <div>
-            {/* XP rendered as an allocation bar, the way a broker shows progress */}
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[7.5px] font-bold" style={{ fontFamily: MONO, letterSpacing: "0.18em", opacity: 0.75 }}>TIER PROGRESS</span>
-              <span className="text-[8px] font-bold" style={{ fontFamily: MONO, opacity: 0.9 }}>
-                {next != null ? `${Math.max(0, cur)}/${span} XP` : "MAX TIER"}
-              </span>
+            {/* net worth is the hero figure — the card exists to state it */}
+            <div className="text-[7.5px] font-bold mb-0.5" style={{ fontFamily: MONO, letterSpacing: "0.2em", opacity: 0.7 }}>NET WORTH</div>
+            <div className="text-[25px] font-extrabold leading-none mb-1.5" style={{ fontFamily: MONO, letterSpacing: "-0.02em" }}>
+              ${shownNW.toLocaleString()}
             </div>
-            <div className="h-[3px] rounded-full overflow-hidden mb-2.5" style={{ background: "rgba(0,0,0,.34)" }}>
+            <div className="h-[3px] rounded-full overflow-hidden mb-2" style={{ background: "rgba(0,0,0,.34)" }}>
               <div className="h-full relative overflow-hidden" style={{ width: `${progress * 100}%`, background: tier.foil, transition: "width .6s var(--snap)" }}>
                 {progress > 0 && progress < 1 && <div className="absolute inset-y-0 xpShine" />}
               </div>
             </div>
             <div className="flex items-end justify-between">
-              <div>
-                <div className="text-[12.5px] font-extrabold leading-none" style={{ fontFamily: DISPLAY, letterSpacing: "0.06em" }}>LEVEL {String(stage).padStart(2, "0")}</div>
-                <div className="text-[7px] font-bold mt-1" style={{ fontFamily: MONO, letterSpacing: "0.16em", opacity: 0.66 }}>MEMBER SINCE {since}</div>
+              <div className="text-[7px] font-bold" style={{ fontFamily: MONO, letterSpacing: "0.15em", opacity: 0.68 }}>
+                MEMBER SINCE {since}
               </div>
-              <div className="text-right">
-                <div className="text-[7px] font-bold" style={{ fontFamily: MONO, letterSpacing: "0.16em", opacity: 0.66 }}>LAST</div>
-                <div className="text-[12px] font-extrabold leading-none" style={{ fontFamily: MONO }}>${S.stock.price.toFixed(2)}</div>
+              <div className="text-[7.5px] font-bold" style={{ fontFamily: MONO, letterSpacing: "0.1em", opacity: 0.9 }}>
+                {tierInfo.next ? `$${tierInfo.toGo.toLocaleString()} TO ${tierInfo.next.name}` : "TOP TIER"}
               </div>
             </div>
           </div>
@@ -1554,7 +1585,7 @@ function CharacterScene({ S, stage, pulse, burst, shake, muted, onToggleMute, co
       {!compact && (
         <>
           <div className="absolute top-3 left-4 px-2.5 py-1 rounded-md text-[11px] font-bold flex items-center gap-1" style={{ background: `linear-gradient(135deg, ${C.surf2}, rgba(0,0,0,.5))`, border: `1px solid ${accent}44`, color: accent, fontFamily: MONO, boxShadow: `0 0 12px ${accent}30` }}>
-            <span style={{ fontSize: 9 }}>▲</span>{rankName(stage)}
+            <span style={{ fontSize: 9 }}>▲</span>VAULT
           </div>
           <div className="absolute top-3 right-4 flex items-center gap-1.5">
             {decorated && (
@@ -1630,22 +1661,24 @@ function Terra() {
   const shownCash = useCount(Math.round(S.cash));
   const activeTheme = THEMES.find((t) => t.id === S.theme) || THEMES[0];
   const totalDone = S.habits.reduce((s, h) => s + h.total, 0);
-  const stage = stageFor(totalDone);
+  const netWorth = netWorthOf(S);
+  const tierIdx = tierIndexFor(netWorth);
 
-  /* the level-up moment fires from wherever you are — you earn it on Today */
-  const prevStage = useRef(stage);
+  /* promotion fires wherever you are — you earn it on Today, not in Porto */
+  const prevTier = useRef(tierIdx);
   useEffect(() => {
-    if (stage > prevStage.current) {
-      const from = prevStage.current;
+    if (tierIdx > prevTier.current) {
+      const from = prevTier.current;
       const unlocked = ITEMS.filter((it) => {
-        const r = rarityForRank(ITEMS.filter((x) => x.slot === it.slot).indexOf(it));
-        return r.minStage > from && r.minStage <= stage;
+        const list = ITEMS.filter((x) => x.slot === it.slot);
+        const r = rarityForRank(Math.floor(list.indexOf(it) * 4 / Math.max(1, list.length)));
+        return r.minTier > from && r.minTier <= tierIdx;
       }).length;
-      setLevelUp({ stage, rank: rankName(stage), unlocked });
+      setLevelUp({ tier: RANK_TIERS[tierIdx].name, unlocked });
       Sfx.levelUp();
     }
-    prevStage.current = stage;
-  }, [stage]);
+    prevTier.current = tierIdx;
+  }, [tierIdx]);
 
   function complete(id) {
     setS((s) => {
@@ -1707,7 +1740,7 @@ function Terra() {
     });
   }
 
-  const TABS = [["today", "Today", Zap], ["assets", "Assets", TrendingUp], ["market", "Market", ShoppingBag], ["character", "Account", User], ["stats", "Portfolio", BarChart3]];
+  const TABS = [["today", "Today", Zap], ["assets", "Assets", TrendingUp], ["market", "Market", ShoppingBag], ["character", "Porto", User], ["stats", "History", BarChart3]];
   const tabIndex = TABS.findIndex((x) => x[0] === tab);
 
   return (
@@ -2247,34 +2280,6 @@ function Market({ S, onBuyShares, onSellShares }) {
 /* ================================================================== */
 /*  CHARACTER — outfit, gear, garage, property                        */
 /* ================================================================== */
-function LevelHUD({ stage, totalDone, min, next, progress, accent, accent2 }) {
-  const rank = rankName(stage);
-  const cur = totalDone - min;
-  const span = next != null ? next - min : cur;
-  return (
-    <div className="mx-4 relative" style={{ marginTop: -34, zIndex: 2 }}>
-      <div className="p-4 rounded-[22px]" style={{ background: "linear-gradient(180deg, rgba(21,21,29,.95), rgba(10,10,15,.98))", border: `1px solid ${C.line}`, boxShadow: SHADOW, backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)" }}>
-        <div className="flex items-end justify-between mb-2.5">
-          <div>
-            <div style={{ ...lbl, color: accent, marginBottom: 2 }}>LEVEL {String(stage).padStart(2, "0")}</div>
-            <div className="text-[23px] font-extrabold leading-none" style={{ fontFamily: DISPLAY, color: C.ink, letterSpacing: "-0.02em" }}>{rank}</div>
-          </div>
-          <div className="text-right text-[11px] font-bold" style={{ color: C.soft, fontFamily: MONO }}>
-            {next != null ? <>{Math.max(0, cur)} <span style={{ opacity: 0.5 }}>/</span> {span} XP</> : "MAX LEVEL"}
-          </div>
-        </div>
-        <div className="h-2.5 rounded-full overflow-hidden relative" style={{ background: C.surf2 }}>
-          <div className="h-full relative overflow-hidden" style={{ width: `${progress * 100}%`, background: `linear-gradient(90deg, ${accent}, ${accent2})`, transition: "width .6s var(--snap)" }}>
-            {progress > 0 && progress < 1 && <div className="absolute inset-y-0 xpShine" />}
-          </div>
-        </div>
-        <div className="mt-1.5 text-[10px]" style={{ color: C.soft, fontFamily: MONO }}>
-          {next != null ? `${next - totalDone} XP TO NEXT LEVEL` : "You've maxed the grind — legendary."}
-        </div>
-      </div>
-    </div>
-  );
-}
 function StatRing({ label, value, glyph, tint, size = 54 }) {
   const r = (size - 7) / 2;
   const c = 2 * Math.PI * r;
@@ -2294,7 +2299,371 @@ function StatRing({ label, value, glyph, tint, size = 54 }) {
     </div>
   );
 }
-function CollectionRow({ slot, S, stage, onBuy, onEquip, lootId }) {
+/* ==================================================================
+   ITEM ART — every purchasable is a drawn vector product shot, lit
+   from the upper-left like the rest of the app. No emoji anywhere.
+   ================================================================== */
+function ItemArt({ item, size = 46, active }) {
+  const { accent } = useAccent();
+  const c1 = item.c1 || accent;
+  const c2 = item.c2 || "#1A1D26";
+  const id = item.id;
+  const G = (sfx) => `${id}_${sfx}`;
+  const V = { width: size, height: size, viewBox: "0 0 48 48", style: { overflow: "visible", display: "block" } };
+  const shade = <linearGradient id={G("g")} x1="0" y1="0" x2="0.7" y2="1"><stop offset="0" stopColor={c1} /><stop offset="1" stopColor={c2} /></linearGradient>;
+
+  switch (item.art) {
+    /* ---------------- APPAREL ---------------- */
+    case "suit": case "bomber": case "coat": case "hoodie":
+      return (
+        <svg {...V}>
+          <defs>{shade}</defs>
+          <path d="M17 11 L24 15 L31 11 L38 15 Q40 16 40 20 L38 40 Q38 43 35 43 L13 43 Q10 43 10 40 L8 20 Q8 16 10 15 Z" fill={`url(#${G("g")})`} />
+          <path d="M31 11 L38 15 Q40 16 40 20 L38 40 Q38 43 35 43 L26 43 L26 11 Z" fill="#000" opacity="0.2" />
+          {item.art === "suit" && <>
+            <path d="M17 11 L24 15 L24 27 L15 18 Z" fill="#F2EFE8" />
+            <path d="M31 11 L24 15 L24 27 L33 18 Z" fill="#E4E0D6" />
+            <path d="M24 27 L27 31 L25.5 40 L22.5 40 L21 31 Z" fill="#8E2436" />
+          </>}
+          {item.art === "hoodie" && <>
+            <path d="M17 11 Q24 20 31 11 Q33 16 27 19 Q24 21 21 19 Q15 16 17 11 Z" fill="#000" opacity="0.28" />
+            <path d="M21 21 L21 30 M27 21 L27 30" stroke="#E8E2D4" strokeWidth="1.6" strokeLinecap="round" />
+          </>}
+          {item.art === "bomber" && <>
+            <path d="M24 12 L24 43" stroke="#D9B44A" strokeWidth="1.4" />
+            <path d="M9 36 L39 36 L38 40 Q38 43 35 43 L13 43 Q10 43 10 40 Z" fill="#000" opacity="0.3" />
+          </>}
+          {item.art === "coat" && <>
+            <path d="M8 24 L40 24" stroke="#000" strokeOpacity="0.3" strokeWidth="1.2" />
+            <path d="M24 12 L24 43" stroke="#000" strokeOpacity="0.35" strokeWidth="1.2" />
+            <rect x="20" y="26" width="8" height="2.4" rx="1" fill={accent} opacity="0.8" />
+          </>}
+          <path d="M10 15 Q8 16 8 20 L9.5 33" stroke="#fff" strokeOpacity="0.22" strokeWidth="1.6" fill="none" />
+        </svg>
+      );
+
+    /* ---------------- HEADWEAR ---------------- */
+    case "cap":
+      return (
+        <svg {...V}>
+          <defs>{shade}</defs>
+          <path d="M9 30 Q9 15 24 15 Q39 15 39 30 Z" fill={`url(#${G("g")})`} />
+          <path d="M24 15 Q39 15 39 30 L24 30 Z" fill="#000" opacity="0.2" />
+          <path d="M39 29 Q47 30 46 34 L24 33 L24 29 Z" fill={c1} />
+          <path d="M39 29 Q47 30 46 34 L36 33.5 Z" fill="#000" opacity="0.25" />
+          <path d="M12 26 Q16 18 24 17" stroke="#fff" strokeOpacity="0.3" strokeWidth="1.6" fill="none" />
+          <circle cx="24" cy="15" r="2" fill={c1} />
+        </svg>
+      );
+    case "beanie":
+      return (
+        <svg {...V}>
+          <defs>{shade}</defs>
+          <path d="M10 31 Q10 13 24 13 Q38 13 38 31 Z" fill={`url(#${G("g")})`} />
+          <path d="M24 13 Q38 13 38 31 L24 31 Z" fill="#000" opacity="0.18" />
+          {[14, 19, 24, 29, 34].map((x) => <path key={x} d={`M${x} 15 L${x} 31`} stroke="#000" strokeOpacity="0.18" strokeWidth="1.1" />)}
+          <rect x="8" y="30" width="32" height="7" rx="3.5" fill={c1} />
+          <rect x="8" y="30" width="32" height="3" rx="1.5" fill="#fff" opacity="0.18" />
+        </svg>
+      );
+    case "tophat":
+      return (
+        <svg {...V}>
+          <defs>{shade}</defs>
+          <rect x="14" y="7" width="20" height="26" rx="2" fill={`url(#${G("g")})`} />
+          <rect x="24" y="7" width="10" height="26" fill="#000" opacity="0.22" />
+          <rect x="14" y="24" width="20" height="5" fill="#8E2436" />
+          <ellipse cx="24" cy="34" rx="19" ry="5" fill={c1} />
+          <ellipse cx="24" cy="33" rx="19" ry="4.6" fill="#2A2C36" />
+          <ellipse cx="24" cy="7" rx="10" ry="2.6" fill="#3A3D48" />
+          <path d="M16 10 L16 30" stroke="#fff" strokeOpacity="0.2" strokeWidth="1.6" />
+        </svg>
+      );
+    case "crown":
+      return (
+        <svg {...V}>
+          <defs>
+            <linearGradient id={G("g")} x1="0" y1="0" x2="0.4" y2="1"><stop offset="0" stopColor="#FFE9A8" /><stop offset="0.5" stopColor="#E0B75F" /><stop offset="1" stopColor="#8A6A20" /></linearGradient>
+          </defs>
+          <path d="M9 34 L7 14 L16 22 L24 9 L32 22 L41 14 L39 34 Z" fill={`url(#${G("g")})`} />
+          <path d="M24 9 L32 22 L41 14 L39 34 L24 34 Z" fill="#000" opacity="0.15" />
+          <rect x="9" y="33" width="30" height="6" rx="2" fill="#C79B36" />
+          <rect x="9" y="33" width="30" height="2.4" rx="1.2" fill="#FFE9A8" opacity="0.7" />
+          <circle cx="24" cy="36" r="2.6" fill="#C4444B" className={active ? "gemGlint" : ""} />
+          <circle cx="15" cy="36" r="1.8" fill="#4FA3FF" />
+          <circle cx="33" cy="36" r="1.8" fill="#3FA55C" />
+        </svg>
+      );
+
+    /* ---------------- TIMEPIECE ---------------- */
+    case "watch":
+      return (
+        <svg {...V}>
+          <defs>
+            {shade}
+            <linearGradient id={G("d")} x1="0" y1="0" x2="0.6" y2="1"><stop offset="0" stopColor="#EDF1F7" /><stop offset="1" stopColor="#98A1AF" /></linearGradient>
+          </defs>
+          <rect x="19" y="3" width="10" height="12" rx="2" fill={c2} />
+          <rect x="19" y="33" width="10" height="12" rx="2" fill={c2} />
+          {[5, 9, 36, 40].map((y) => <rect key={y} x="19" y={y} width="10" height="1.4" fill="#000" opacity="0.25" />)}
+          <circle cx="24" cy="24" r="13" fill={`url(#${G("g")})`} />
+          <circle cx="24" cy="24" r="10.5" fill={`url(#${G("d")})`} />
+          <circle cx="24" cy="24" r="10.5" fill="none" stroke="#000" strokeOpacity="0.2" strokeWidth="0.8" />
+          {[0, 90, 180, 270].map((a) => (
+            <rect key={a} x="23.4" y="15.5" width="1.2" height="3" fill="#2A2E38" transform={`rotate(${a} 24 24)`} />
+          ))}
+          <g className={active ? "clockTick" : ""} style={{ transformBox: "fill-box", transformOrigin: "50% 100%" }}>
+            <rect x="23.5" y="17" width="1" height="7.5" rx="0.5" fill="#1A1D26" />
+          </g>
+          <rect x="23.6" y="19" width="0.9" height="5.4" rx="0.45" fill="#8E2436" transform="rotate(115 24 24)" />
+          <circle cx="24" cy="24" r="1.3" fill="#1A1D26" />
+          <path d="M16 17 A10.5 10.5 0 0 1 26 14" stroke="#fff" strokeOpacity="0.5" strokeWidth="1.4" fill="none" strokeLinecap="round" />
+          <rect x="36" y="22" width="2.6" height="4" rx="1" fill={c1} />
+        </svg>
+      );
+
+    /* ---------------- SIGNATURE ---------------- */
+    case "halo":
+      return (
+        <svg {...V}>
+          <defs><radialGradient id={G("g")}><stop offset="0.55" stopColor={c1} stopOpacity="0" /><stop offset="0.8" stopColor={c1} stopOpacity="0.55" /><stop offset="1" stopColor={c1} stopOpacity="0" /></radialGradient></defs>
+          <circle cx="24" cy="24" r="20" fill={`url(#${G("g")})`} />
+          <ellipse cx="24" cy="24" rx="15" ry="6" fill="none" stroke={c1} strokeWidth="3" className={active ? "trophyGlint" : ""} />
+          <ellipse cx="24" cy="22.6" rx="15" ry="6" fill="none" stroke="#fff" strokeOpacity="0.45" strokeWidth="1.2" />
+        </svg>
+      );
+    case "flame":
+      return (
+        <svg {...V}>
+          <defs><linearGradient id={G("g")} x1="0" y1="1" x2="0" y2="0"><stop offset="0" stopColor="#C4262B" /><stop offset="0.5" stopColor="#FF7A3C" /><stop offset="1" stopColor="#FFD24A" /></linearGradient></defs>
+          <path d="M24 44 Q9 36 12 24 Q14 16 21 10 Q20 18 25 20 Q31 15 29 6 Q40 15 38 27 Q36 38 24 44 Z" fill={`url(#${G("g")})`} className={active ? "fireLick" : ""} />
+          <path d="M24 40 Q17 35 19 28 Q21 23 24 20 Q23 27 27 28 Q30 24 29 19 Q34 25 32 31 Q30 37 24 40 Z" fill="#FFE9A8" opacity="0.85" className={active ? "fireLick" : ""} style={{ animationDelay: "0.3s" }} />
+        </svg>
+      );
+    case "stars":
+      return (
+        <svg {...V}>
+          {[[24, 10, 8], [12, 30, 5], [36, 32, 6], [30, 20, 3.4]].map((s, i) => (
+            <path key={i} className={active ? "twinkle2" : ""} style={{ animationDelay: `${i * 0.35}s` }}
+              d={`M${s[0]} ${s[1] - s[2]} Q${s[0] + s[2] * 0.22} ${s[1] - s[2] * 0.22} ${s[0] + s[2]} ${s[1]} Q${s[0] + s[2] * 0.22} ${s[1] + s[2] * 0.22} ${s[0]} ${s[1] + s[2]} Q${s[0] - s[2] * 0.22} ${s[1] + s[2] * 0.22} ${s[0] - s[2]} ${s[1]} Q${s[0] - s[2] * 0.22} ${s[1] - s[2] * 0.22} ${s[0]} ${s[1] - s[2]} Z`}
+              fill={i === 0 ? "#FFF3C4" : c1} />
+          ))}
+        </svg>
+      );
+
+    /* ---------------- COMPANION ---------------- */
+    case "bird":
+      return (
+        <svg {...V}>
+          <defs>{shade}</defs>
+          <ellipse cx="25" cy="27" rx="12" ry="9" fill={`url(#${G("g")})`} />
+          <path d="M25 27 Q31 17 39 20 Q35 27 27 31 Z" fill="#5F6A7C" className={active ? "companionFloat" : ""} />
+          <circle cx="15" cy="22" r="6.5" fill="#A5AFC0" />
+          <circle cx="12.6" cy="21" r="1.5" fill="#171A21" />
+          <circle cx="12.1" cy="20.5" r="0.5" fill="#fff" />
+          <path d="M9 22.5 L4 24 L9 25.5 Z" fill="#E8B25C" />
+          <path d="M34 32 Q42 34 44 30 L36 29 Z" fill="#6E7A8C" />
+          <path d="M22 35 L21 40 M28 35 L29 40" stroke="#E8B25C" strokeWidth="1.6" strokeLinecap="round" />
+        </svg>
+      );
+    case "butterfly":
+      return (
+        <svg {...V}>
+          <defs>
+            <linearGradient id={G("g")} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#7FC6FF" /><stop offset="1" stopColor="#2E6BA8" /></linearGradient>
+          </defs>
+          <g className={active ? "leafSway" : ""}>
+            <path d="M23 24 Q12 8 5 16 Q3 26 21 27 Z" fill={`url(#${G("g")})`} />
+            <path d="M23 26 Q13 40 6 34 Q6 27 22 27 Z" fill="#2E6BA8" />
+          </g>
+          <g className={active ? "leafSway" : ""} style={{ animationDelay: "0.2s" }}>
+            <path d="M25 24 Q36 8 43 16 Q45 26 27 27 Z" fill={`url(#${G("g")})`} />
+            <path d="M25 26 Q35 40 42 34 Q42 27 26 27 Z" fill="#2E6BA8" />
+          </g>
+          <ellipse cx="24" cy="26" rx="2" ry="9" fill="#1A1D26" />
+          <path d="M23 17 Q20 11 17 10 M25 17 Q28 11 31 10" stroke="#1A1D26" strokeWidth="1.2" fill="none" strokeLinecap="round" />
+        </svg>
+      );
+    case "dragon":
+      return (
+        <svg {...V}>
+          <defs>
+            <linearGradient id={G("g")} x1="0" y1="0" x2="0.6" y2="1"><stop offset="0" stopColor="#57C071" /><stop offset="1" stopColor="#1F6B36" /></linearGradient>
+          </defs>
+          <path d="M12 34 Q6 30 8 24 Q14 27 16 31 Z" fill="#2F8749" />
+          <path d="M26 20 Q38 10 44 18 Q38 22 30 26 Z" fill="#3FA55C" className={active ? "companionFloat" : ""} />
+          <ellipse cx="22" cy="30" rx="13" ry="8" fill={`url(#${G("g")})`} />
+          <path d="M22 38 Q30 42 40 38 Q34 44 22 41 Z" fill="#2F8749" />
+          <circle cx="12" cy="22" r="7" fill="#4FB868" />
+          <path d="M9 16 L11 11 L14 16 Z" fill="#F5B429" />
+          <path d="M14 15 L17 11 L18 16 Z" fill="#F5B429" />
+          <circle cx="9.4" cy="21" r="1.7" fill="#F5B429" />
+          <circle cx="9" cy="20.4" r="0.6" fill="#1A1D26" />
+          <path d="M5 24 Q1 25 2 27" stroke="#FF7A3C" strokeWidth="1.8" fill="none" strokeLinecap="round" className={active ? "fireLick" : ""} />
+        </svg>
+      );
+
+    /* ---------------- VEHICLES ---------------- */
+    case "car":
+      return <div style={{ width: size * 1.35, display: "flex", alignItems: "center" }}><CarFigure tier={carTierOf(id)} size={size * 1.35} /></div>;
+    case "yacht":
+      return (
+        <svg {...V} viewBox="0 0 56 48" width={size * 1.2} height={size}>
+          <defs>{shade}</defs>
+          <path d="M6 33 L50 33 L45 41 Q44 43 41 43 L13 43 Q10 43 9 41 Z" fill={`url(#${G("g")})`} />
+          <path d="M6 33 L50 33 L48.6 35.2 L7 35.2 Z" fill="#fff" opacity="0.35" />
+          <path d="M14 33 L16 24 L40 24 L42 33 Z" fill="#F2F5FA" />
+          <path d="M28 24 L40 24 L42 33 L28 33 Z" fill="#000" opacity="0.12" />
+          {[19, 25, 31, 36].map((x) => <rect key={x} x={x} y="27" width="4" height="3" rx="0.6" fill="#2E6BA8" opacity="0.85" />)}
+          <path d="M20 24 L22 16 L34 16 L36 24 Z" fill="#E8ECF2" />
+          <rect x="26" y="6" width="1.6" height="10" fill="#8A93A5" />
+          <path d="M27.6 6 L36 10 L27.6 13 Z" fill={accent} />
+          <path d="M9 43 Q28 46 45 43" stroke="#4FA3FF" strokeOpacity="0.5" strokeWidth="1.6" fill="none" />
+        </svg>
+      );
+    case "jet":
+      return (
+        <svg {...V} viewBox="0 0 56 48" width={size * 1.2} height={size}>
+          <defs>{shade}</defs>
+          <path d="M4 26 Q10 20 26 20 L44 21 Q52 22 52 26 Q52 30 44 31 L26 32 Q10 32 4 26 Z" fill={`url(#${G("g")})`} />
+          <path d="M4 26 Q10 21 26 20.6 L44 21.4 Q52 22.4 52 25 L4 25.4 Z" fill="#fff" opacity="0.35" />
+          <path d="M24 22 L14 8 L20 8 L34 21 Z" fill="#C9CED8" />
+          <path d="M24 30 L14 42 L20 42 L34 31 Z" fill="#98A1AF" />
+          <path d="M44 21 L48 12 L51 12 L50 21 Z" fill="#8A93A5" />
+          {[14, 20, 26, 32].map((x) => <circle key={x} cx={x} cy="25" r="1.5" fill="#2E6BA8" />)}
+          <path d="M6 26 Q9 23 13 23" stroke="#fff" strokeOpacity="0.55" strokeWidth="1.4" fill="none" strokeLinecap="round" />
+          <path d="M50 26 L56 26" stroke={accent} strokeOpacity="0.5" strokeWidth="2" strokeLinecap="round" className={active ? "speedLine" : ""} />
+        </svg>
+      );
+
+    /* ---------------- REAL ESTATE ---------------- */
+    case "tower": case "penthouse": {
+      const floors = item.art === "penthouse" ? 7 : 6;
+      return (
+        <svg {...V}>
+          <defs>{shade}</defs>
+          <path d="M12 44 L12 8 L30 4 L30 44 Z" fill={`url(#${G("g")})`} />
+          <path d="M30 4 L38 8 L38 44 L30 44 Z" fill="#000" opacity="0.28" />
+          {Array.from({ length: floors }, (_, i) => (
+            <g key={i}>
+              <rect x="15" y={10 + i * 5} width="4.5" height="3" fill="#FFD9A0" opacity={i % 2 ? 0.9 : 0.45} className={active && i === 1 ? "tvFlicker" : ""} />
+              <rect x="21.5" y={10 + i * 5} width="4.5" height="3" fill="#FFD9A0" opacity={i % 3 ? 0.5 : 0.9} />
+              <rect x="32" y={11 + i * 5} width="3.4" height="3" fill="#FFD9A0" opacity="0.3" />
+            </g>
+          ))}
+          {item.art === "penthouse" && <>
+            <path d="M10 8 L30 3 L40 8 L30 6 Z" fill={accent} opacity="0.85" />
+            <circle cx="34" cy="6" r="1.6" fill="#FF5C72" className={active ? "gemGlint" : ""} />
+          </>}
+          <rect x="12" y="43" width="26" height="2" fill="#000" opacity="0.35" />
+        </svg>
+      );
+    }
+    case "house":
+      return (
+        <svg {...V}>
+          <defs>{shade}</defs>
+          <path d="M6 22 L24 8 L42 22 L38 22 L38 42 L10 42 L10 22 Z" fill={`url(#${G("g")})`} />
+          <path d="M24 8 L42 22 L38 22 L38 42 L24 42 Z" fill="#000" opacity="0.22" />
+          <path d="M6 22 L24 8 L42 22 L24 13 Z" fill="#8E3A34" />
+          <rect x="20" y="30" width="8" height="12" rx="1" fill="#5A3D28" />
+          <circle cx="26" cy="36" r="0.9" fill="#F5D77A" />
+          <rect x="12" y="26" width="6" height="5" rx="0.8" fill="#FFD9A0" className={active ? "lampFlicker" : ""} />
+          <rect x="30" y="26" width="5" height="5" rx="0.8" fill="#FFD9A0" opacity="0.5" />
+          <rect x="31" y="12" width="4" height="7" fill="#8E3A34" />
+        </svg>
+      );
+    case "villa":
+      return (
+        <svg {...V}>
+          <defs>{shade}</defs>
+          <rect x="8" y="18" width="32" height="18" rx="2" fill="#EDF1F7" />
+          <rect x="26" y="18" width="14" height="18" fill="#000" opacity="0.12" />
+          <path d="M5 18 L24 9 L43 18 Z" fill="#C9CED8" />
+          {[11, 18, 25, 32].map((x) => <rect key={x} x={x} y="23" width="5" height="8" rx="0.8" fill="#2E6BA8" opacity="0.7" />)}
+          <path d="M4 36 Q24 33 44 36 L44 44 L4 44 Z" fill={c1} opacity="0.75" className={active ? "leafSway" : ""} />
+          <path d="M8 39 Q24 37 40 39" stroke="#fff" strokeOpacity="0.5" strokeWidth="1.2" fill="none" />
+          <path d="M40 22 Q38 14 42 10 Q44 15 43 22 Z" fill="#3FA55C" />
+        </svg>
+      );
+    case "mansion":
+      return (
+        <svg {...V}>
+          <defs>
+            <linearGradient id={G("g")} x1="0" y1="0" x2="0.5" y2="1"><stop offset="0" stopColor="#F0E4B8" /><stop offset="1" stopColor="#B8983F" /></linearGradient>
+          </defs>
+          <rect x="7" y="20" width="34" height="22" fill={`url(#${G("g")})`} />
+          <rect x="26" y="20" width="15" height="22" fill="#000" opacity="0.16" />
+          <path d="M4 20 L24 8 L44 20 Z" fill="#8A6C2C" />
+          <path d="M24 8 L44 20 L24 20 Z" fill="#000" opacity="0.15" />
+          {[10, 16, 28, 34].map((x) => <rect key={x} x={x} y="24" width="4" height="18" fill="#F6EDD0" />)}
+          <rect x="21" y="28" width="6" height="14" rx="0.8" fill="#5A2F65" />
+          <circle cx="24" cy="16" r="2.6" fill="#F5D77A" className={active ? "gemGlint" : ""} />
+          <rect x="7" y="42" width="34" height="2" fill="#8A6C2C" />
+        </svg>
+      );
+    case "island":
+      return (
+        <svg {...V}>
+          <defs>
+            <linearGradient id={G("g")} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#4FD8E8" /><stop offset="1" stopColor="#1B7C96" /></linearGradient>
+          </defs>
+          <ellipse cx="24" cy="38" rx="22" ry="8" fill={`url(#${G("g")})`} />
+          <ellipse cx="24" cy="34" rx="15" ry="6.5" fill="#E8DCA8" />
+          <ellipse cx="24" cy="32.6" rx="10" ry="4.6" fill="#3FBF6A" />
+          <path d="M20 32 Q19 24 21 18" stroke="#8A5A32" strokeWidth="2" fill="none" strokeLinecap="round" />
+          <g className={active ? "leafSway" : ""}>
+            <ellipse cx="16" cy="17" rx="7" ry="3" fill="#2F8749" transform="rotate(-22 16 17)" />
+            <ellipse cx="26" cy="16" rx="7" ry="3" fill="#3FA55C" transform="rotate(20 26 16)" />
+            <ellipse cx="21" cy="13" rx="5" ry="2.6" fill="#57C071" />
+          </g>
+          <path d="M4 40 Q12 37 20 40 M28 41 Q36 38 44 41" stroke="#fff" strokeOpacity="0.45" strokeWidth="1.3" fill="none" strokeLinecap="round" />
+        </svg>
+      );
+
+    /* ---------------- FINE ART ---------------- */
+    case "artAbstract": case "artHorizon": case "artBust": case "artGenesis":
+      return (
+        <svg {...V}>
+          <defs>
+            <linearGradient id={G("f")} x1="0" y1="0" x2="0.5" y2="1"><stop offset="0" stopColor="#C9A45A" /><stop offset="1" stopColor="#7A5F30" /></linearGradient>
+          </defs>
+          <rect x="6" y="7" width="36" height="34" rx="1.5" fill={`url(#${G("f")})`} />
+          <rect x="9.5" y="10.5" width="29" height="27" fill="#14161D" />
+          {item.art === "artAbstract" && <>
+            <circle cx="20" cy="21" r="7.5" fill={c1} opacity="0.9" />
+            <path d="M24 34 L34 16 L38 34 Z" fill="#4FA3FF" opacity="0.75" />
+            <rect x="12" y="28" width="14" height="4" fill="#F5B429" opacity="0.85" />
+          </>}
+          {item.art === "artHorizon" && <>
+            <rect x="9.5" y="10.5" width="29" height="16" fill="#2E3A6E" />
+            <circle cx="30" cy="20" r="5" fill="#FF9E5C" />
+            <rect x="9.5" y="26" width="29" height="11.5" fill="#1B2440" />
+            <path d="M9.5 26 Q24 31 38.5 26" stroke="#FF9E5C" strokeOpacity="0.6" strokeWidth="1.4" fill="none" />
+          </>}
+          {item.art === "artBust" && <>
+            <ellipse cx="24" cy="20" rx="6.5" ry="8" fill="#E8ECF2" />
+            <path d="M17 37 Q17 27 24 27 Q31 27 31 37 Z" fill="#D2D8E4" />
+            <path d="M24 12 Q30 14 30 21 Q30 26 24 27 Z" fill="#000" opacity="0.13" />
+          </>}
+          {item.art === "artGenesis" && <>
+            {[0, 1, 2].map((r) => [0, 1, 2].map((c) => (
+              <rect key={`${r}${c}`} x={12 + c * 9} y={13 + r * 8.5} width="7" height="6.5" rx="1"
+                fill={(r + c) % 2 ? "#F5B429" : "#2A2E38"} className={active && r === 1 && c === 1 ? "gemGlint" : ""} />
+            )))}
+          </>}
+          <rect x="9.5" y="10.5" width="29" height="27" fill="none" stroke="#000" strokeOpacity="0.4" strokeWidth="0.8" />
+          <path d="M9.5 10.5 L38.5 10.5" stroke="#fff" strokeOpacity="0.14" strokeWidth="1.4" />
+          <rect x="20" y="41" width="8" height="2" rx="1" fill="#5C4722" />
+        </svg>
+      );
+
+    default:
+      return <svg {...V}><circle cx="24" cy="24" r="14" fill={c1} /></svg>;
+  }
+}
+
+function CollectionRow({ slot, S, tierIdx, onBuy, onEquip, lootId }) {
   const { accent } = useAccent();
   const items = ITEMS.filter((i) => i.slot === slot);
   const collected = items.filter((i) => S.itemsOwned.includes(i.id)).length;
@@ -2305,32 +2674,39 @@ function CollectionRow({ slot, S, stage, onBuy, onEquip, lootId }) {
         <div className="text-[10px] font-bold" style={{ color: C.soft, fontFamily: MONO }}>{collected}/{items.length} held</div>
       </div>
       <div className="flex gap-2.5 overflow-x-auto px-4 pb-1" style={{ scrollSnapType: "x proximity" }}>
-        <button onClick={() => onEquip(slot, null)} className="shrink-0 flex flex-col items-center justify-center rounded-[18px] hoverLift press" style={{ width: 90, height: 112, background: C.surf, border: `1px solid ${!S.equipped[slot] ? accent : C.line}`, boxShadow: !S.equipped[slot] ? `0 0 0 1px ${accent}44, 0 0 14px ${accent}33` : "none", scrollSnapAlign: "start" }}>
+        <button onClick={() => onEquip(slot, null)} className="shrink-0 flex flex-col items-center justify-center rounded-[18px] hoverLift press" style={{ width: 104, height: 138, background: C.surf, border: `1px solid ${!S.equipped[slot] ? accent : C.line}`, boxShadow: !S.equipped[slot] ? `0 0 0 1px ${accent}44, 0 0 14px ${accent}33` : "none", scrollSnapAlign: "start" }}>
           <div className="text-xl mb-1" style={{ color: C.soft }}>—</div>
           <div className="text-[10px] font-bold uppercase" style={{ color: C.soft, fontFamily: MONO }}>None</div>
         </button>
         {items.map((item, idx) => {
-          const rarity = rarityForRank(idx);
+          const rarity = rarityForRank(Math.floor(idx * 4 / Math.max(1, items.length)));
           const owned = S.itemsOwned.includes(item.id);
           const isEquipped = S.equipped[slot] === item.id;
           const afford = S.cash >= item.price;
-          const locked = stage < rarity.minStage;
-          const icon = item.c1 ? <div className="rounded-full" style={{ width: 26, height: 26, background: `linear-gradient(135deg, ${item.c1}, ${item.c2})` }} /> : <span className="text-2xl">{item.emoji || (item.style === "halo" ? "⭕" : item.style === "flame" ? "🔥" : "✨")}</span>;
+          const locked = tierIdx < rarity.minTier;
           const looting = lootId === item.id;
+          const price = item.price >= 1000 ? `$${(item.price / 1000).toFixed(item.price >= 10000 ? 0 : 1)}k` : `$${item.price}`;
           return (
-            <div key={item.id} className={"shrink-0 relative flex flex-col items-center text-center rounded-[18px] hoverLift overflow-hidden" + (looting ? " lootPop" : "")} style={{ width: 90, height: 112, padding: "10px 6px 8px", background: C.surf, border: `1px solid ${isEquipped ? accent : C.line}`, boxShadow: isEquipped ? `0 0 0 1px ${accent}44, 0 0 16px ${accent}40, ${SHADOW}` : SHADOW, scrollSnapAlign: "start" }}>
+            <div key={item.id} className={"shrink-0 relative flex flex-col items-center text-center rounded-[18px] hoverLift overflow-hidden" + (looting ? " lootPop" : "")} style={{ width: 104, height: 138, padding: "9px 7px 8px", background: C.surf, border: `1px solid ${isEquipped ? accent : C.line}`, boxShadow: isEquipped ? `0 0 0 1px ${accent}44, 0 0 16px ${accent}40, ${SHADOW}` : SHADOW, scrollSnapAlign: "start" }}>
               {looting && <div className="absolute inset-0 pointer-events-none lootBeam" style={{ background: `linear-gradient(to top, transparent, ${rarity.color}aa, transparent)` }} />}
               {/* the grade badge reads like a bond rating, not a loot tier */}
-              <div className="absolute top-1.5 left-1.5 px-1 rounded text-[7px] font-black" style={{ color: rarity.color, background: `${rarity.color}1F`, border: `0.5px solid ${rarity.color}66`, fontFamily: MONO, letterSpacing: "0.04em" }}>{rarity.grade}</div>
-              <div className="mb-1 mt-1 h-[26px] flex items-center justify-center" style={{ opacity: locked ? 0.35 : 1, filter: locked ? "grayscale(0.6)" : "none" }}>{icon}</div>
-              <div className="text-[10px] font-semibold mb-0.5 truncate w-full" style={{ color: locked ? C.soft : C.ink }}>{item.name}</div>
-              <div className="text-[8px] font-bold uppercase mb-1.5" style={{ color: rarity.color, fontFamily: MONO, letterSpacing: "0.04em" }}>{rarity.label}</div>
+              <div className="absolute top-1.5 left-1.5 px-1 rounded text-[7px] font-black z-10" style={{ color: rarity.color, background: `${rarity.color}1F`, border: `0.5px solid ${rarity.color}66`, fontFamily: MONO, letterSpacing: "0.04em" }}>{rarity.grade}</div>
+              {/* the drawn product shot, on its own lit plinth */}
+              <div className="relative mb-1 w-full flex items-center justify-center" style={{ height: 52 }}>
+                <div className="absolute rounded-full" style={{ bottom: 2, width: 56, height: 12, background: `radial-gradient(ellipse, ${rarity.color}2E, transparent 70%)` }} />
+                <div style={{ opacity: locked ? 0.3 : 1, filter: locked ? "grayscale(1)" : "none", transition: "filter .3s var(--snap)" }}>
+                  <ItemArt item={item} size={44} active={!locked} />
+                </div>
+                {locked && <div className="absolute inset-0 flex items-center justify-center text-[15px]">🔒</div>}
+              </div>
+              <div className="text-[10.5px] font-semibold mb-0.5 truncate w-full" style={{ color: locked ? C.soft : C.ink }}>{item.name}</div>
+              <div className="text-[7.5px] font-bold uppercase mb-1.5" style={{ color: rarity.color, fontFamily: MONO, letterSpacing: "0.08em" }}>{rarity.label}</div>
               {locked ? (
-                <div className="w-full py-1 rounded-lg text-[9px] font-bold" style={{ background: C.surf2, color: C.soft, fontFamily: MONO }}>🔒 TIER {rarity.minStage}</div>
+                <div className="w-full py-1 rounded-lg text-[8.5px] font-bold" style={{ background: C.surf2, color: C.soft, fontFamily: MONO, letterSpacing: "0.03em" }}>{RANK_TIERS[rarity.minTier].name}</div>
               ) : owned ? (
                 <button onClick={() => onEquip(slot, item.id)} className="w-full py-1 rounded-lg text-[10px] font-bold press" style={{ background: isEquipped ? accent : C.surf2, color: isEquipped ? C.app : C.soft }}>{isEquipped ? "Active" : "Hold"}</button>
               ) : (
-                <button onClick={() => onBuy(item)} disabled={!afford} className="w-full py-1 rounded-lg text-[10px] font-bold press" style={{ background: afford ? accent : C.surf2, color: afford ? C.app : "#4A4A55", fontFamily: MONO }}>{"$" + item.price.toLocaleString()}</button>
+                <button onClick={() => onBuy(item)} disabled={!afford} className="w-full py-1 rounded-lg text-[10.5px] font-bold press" style={{ background: afford ? accent : C.surf2, color: afford ? C.app : "#4A4A55", fontFamily: MONO }}>{price}</button>
               )}
             </div>
           );
@@ -2340,8 +2716,11 @@ function CollectionRow({ slot, S, stage, onBuy, onEquip, lootId }) {
   );
 }
 function Character({ S, totalDone, onBuyItem, onEquipItem }) {
-  const { accent, accent2 } = useAccent();
-  const { stage, min, next, progress } = nextStageInfo(totalDone);
+  const { accent } = useAccent();
+  const netWorth = useMemo(() => netWorthOf(S), [S.cash, S.itemsOwned, S.stock.shares, S.stock.price]);
+  const tierInfo = useMemo(() => nextTierInfo(netWorth), [netWorth]);
+  const tierIdx = tierInfo.index;
+  const stage = stageFor(totalDone);
   const [pulse, setPulse] = useState(false);
   const [burst, setBurst] = useState(null);
   const [shake, setShake] = useState(false);
@@ -2377,7 +2756,7 @@ function Character({ S, totalDone, onBuyItem, onEquipItem }) {
   const eq = useMemo(() => resolveEquipped(S.equipped), [S.equipped]);
   const tint = { discipline: accent, energy: C.gold, focus: "#4FA3FF", streak: "#FF9E4A", consistency: C.good };
   /* every acquisition is a position; book value is what you paid for them */
-  const ALLOC_COLORS = { outfit: accent, head: "#4FA3FF", aura: "#B968FF", sidekick: C.good, car: "#FF9E4A", property: C.gold };
+  const ALLOC_COLORS = { outfit: accent, head: "#4FA3FF", watch: "#C9CED8", aura: "#B968FF", sidekick: C.good, car: "#FF9E4A", property: C.gold, art: "#FF5C72" };
   const { bookValue, alloc } = useMemo(() => {
     const held = ITEMS.filter((i) => S.itemsOwned.includes(i.id));
     const total = held.reduce((sum, i) => sum + i.price, 0);
@@ -2390,11 +2769,11 @@ function Character({ S, totalDone, onBuyItem, onEquipItem }) {
   return (
     <div className="pb-6 pt-2">
       <div className="px-6 mb-3">
-        <div className="text-[25px] font-extrabold" style={{ color: C.ink, fontFamily: DISPLAY, letterSpacing: "-0.02em" }}>Account</div>
+        <div className="text-[25px] font-extrabold" style={{ color: C.ink, fontFamily: DISPLAY, letterSpacing: "-0.02em" }}>Porto</div>
         <div className="text-[13px] mt-0.5" style={{ color: C.soft }}>Your discipline is the underlying asset. Tilt the card.</div>
       </div>
 
-      <InvestorCard S={S} stage={stage} next={next} min={min} totalDone={totalDone} progress={progress}
+      <InvestorCard S={S} netWorth={netWorth} tierInfo={tierInfo}
         pulse={pulse} burst={burst} shake={shake} muted={muted} onToggleMute={toggleMute} />
 
       {/* ---- book value: what the account is actually worth ---- */}
@@ -2408,7 +2787,7 @@ function Character({ S, totalDone, onBuyItem, onEquipItem }) {
           </div>
           <div className="text-right">
             <div style={lbl}>Tier</div>
-            <div className="text-[13px] font-extrabold mt-1" style={{ color: accent, fontFamily: MONO, letterSpacing: "0.1em" }}>{rankName(stage)}</div>
+            <div className="text-[13px] font-extrabold mt-1" style={{ color: accent, fontFamily: MONO, letterSpacing: "0.1em" }}>{tierInfo.tier.name}</div>
           </div>
         </div>
         {/* allocation across asset classes, weighted by what each cost */}
@@ -2435,7 +2814,7 @@ function Character({ S, totalDone, onBuyItem, onEquipItem }) {
       </div>
 
       <div style={lbl} className="px-5 mb-2">Holdings</div>
-      {SLOTS.map((slot) => <CollectionRow key={slot} slot={slot} S={S} stage={stage} lootId={lootId} onBuy={buy} onEquip={equip} />)}
+      {SLOTS.map((slot) => <CollectionRow key={slot} slot={slot} S={S} tierIdx={tierIdx} lootId={lootId} onBuy={buy} onEquip={equip} />)}
 
       {/* ---- the vault: what those positions actually look like ---- */}
       <div className="flex items-center justify-between px-5 mb-2 mt-1">
@@ -2472,7 +2851,7 @@ function Stats({ S, energy, totalDone }) {
 
   return (
     <div className="px-4 pb-6 pt-2">
-      <div className="px-2 mb-3"><div className="text-[25px] font-extrabold" style={{ color: C.ink, fontFamily: DISPLAY, letterSpacing: "-0.02em" }}>Portfolio</div></div>
+      <div className="px-2 mb-3"><div className="text-[25px] font-extrabold" style={{ color: C.ink, fontFamily: DISPLAY, letterSpacing: "-0.02em" }}>History</div></div>
 
       <div className="p-4 rounded-[26px] mb-4" style={{ background: C.surf, border: `1px solid ${C.line}`, boxShadow: SHADOW }}>
         <div className="flex items-center justify-between mb-2">
@@ -2488,7 +2867,7 @@ function Stats({ S, energy, totalDone }) {
 
       <div className="grid grid-cols-2 gap-2.5 mb-4">
         <Stat big={S.streak} unit="day streak" icon="🔥" tint="#FF9E4A" />
-        <Stat big={`$${Math.round(portfolioValue)}`} unit="portfolio" icon="💹" tint={accent} />
+        <Stat big={`$${Math.round(portfolioValue)}`} unit="ISWR position" icon="💹" tint={accent} />
         <Stat big={totalDone} unit="habits tended" icon="✓" tint={C.good} />
         <Stat big={S.assets.length} unit="assets tracked" icon="📊" tint={C.gold} />
       </div>
