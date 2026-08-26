@@ -799,14 +799,20 @@ function CharacterFigure({ outfit, headItem, aura, sidekick, tiltX = 0, tiltY = 
 
         {/* ================= HEAD ================= */}
         <g style={{ transform: `translateX(${gaze * 1.6}px) rotate(${gaze * 0.55}deg)`, transformOrigin: "75px 52px", transition: "transform .2s var(--snap)" }}>
-          {/* cranium: an egg, wider at the temples, tapering to the chin */}
-          <path d="M75 15 Q95 15 97 34 Q98 44 93 50 Q88 58 82 60 Q75 63 68 60 Q62 58 57 50 Q52 44 53 34 Q55 15 75 15 Z" fill={`url(#sk${u})`} />
+          {/* cranium: squarer jaw, defined chin, cheekbones set high —
+             a leading-man read rather than a soft round avatar */}
+          <path d="M75 14 Q94 14 96 32 Q97 40 94 45 Q92 52 87 57 Q81 62 75 62 Q69 62 63 57 Q58 52 56 45 Q53 40 54 32 Q56 14 75 14 Z" fill={`url(#sk${u})`} />
           {/* core shadow on the turned side */}
-          <path d="M86 21 Q97 30 97 38 Q97 46 92 51 Q87 58 81 60 L79 22 Z" fill="#000" opacity="0.15" />
-          {/* cheekbone plane catching light */}
-          <path d="M60 38 Q68 33 73 38 Q69 47 62 46 Z" fill="#fff" opacity="0.09" />
+          <path d="M86 20 Q96 30 96 38 Q96 46 92 51 Q87 59 80 62 L79 21 Z" fill="#000" opacity="0.17" />
+          {/* cheekbone plane catching light — set high and angular */}
+          <path d="M58 36 Q68 31 73 37 Q68 45 60 44 Z" fill="#fff" opacity="0.11" />
+          {/* the hollow beneath the cheekbone is what sculpts a face */}
+          <path d="M60 45 Q67 48 71 45 Q68 52 62 51 Z" fill="#000" opacity="0.13" />
+          <path d="M84 44 Q89 47 90 43 Q89 51 84 50 Z" fill="#000" opacity="0.1" />
           {/* jaw shadow under the cheek */}
-          <path d="M62 48 Q75 58 88 48 Q84 57 75 60 Q66 57 62 48 Z" fill="#000" opacity="0.12" />
+          <path d="M63 50 Q75 59 87 50 Q83 58 75 62 Q67 58 63 50 Z" fill="#000" opacity="0.13" />
+          {/* stubble along the jawline */}
+          <path d="M60 46 Q64 58 75 61 Q86 58 90 45 Q88 57 75 63 Q62 57 60 46 Z" fill="#2A1D14" opacity="0.2" />
           {/* ears with inner shadow */}
           <ellipse cx="53" cy="39" rx="4.4" ry="6" fill={S3} />
           <ellipse cx="53.5" cy="39" rx="2" ry="3.4" fill="#000" opacity="0.28" />
@@ -820,8 +826,11 @@ function CharacterFigure({ outfit, headItem, aura, sidekick, tiltX = 0, tiltY = 
 
           {!headItem && (
             <>
-              {/* hair as mass first, then a specular band, then strands */}
-              <path d="M53 36 Q50 14 75 12 Q100 14 97 36 Q95 25 88 20 Q76 27 62 23 Q56 26 53 36 Z" fill={`url(#hr${u})`} />
+              {/* a styled sweep with a hard taper at the temples: volume
+                 up top, tight at the sides, a break falling over the brow */}
+              <path d="M54 38 Q50 13 75 11 Q101 13 96 38 Q95 30 92 25 Q86 15 74 17 Q64 19 60 26 Q56 31 54 38 Z" fill={`url(#hr${u})`} />
+              <path d="M60 26 Q68 16 82 17 Q92 19 94 30 Q88 20 76 21 Q66 22 60 30 Z" fill="#1C130D" opacity="0.55" />
+              <path d="M58 30 Q64 21 74 20 Q66 25 62 33 Z" fill="#6B5138" opacity="0.35" />
               {/* the specular band that makes hair read as hair, not felt */}
               <path d="M56 26 Q64 15 78 14 Q68 20 63 30 Z" fill="#9C7A54" opacity="0.42" />
               <path d="M58 24 Q66 16 76 15 Q69 20 65 27 Z" fill="#C2A077" opacity="0.3" />
@@ -854,8 +863,10 @@ function CharacterFigure({ outfit, headItem, aura, sidekick, tiltX = 0, tiltY = 
             </>
           ) : (
             <>
-              <ellipse cx="65.5" cy="42" rx="4.8" ry="5" fill="#FCF8F2" />
-              <ellipse cx="85.5" cy="42" rx="4.3" ry="4.6" fill="#EFE8DE" />
+              {/* almond eyes, not circles — the difference between a
+                 stylised adult and a cartoon */}
+              <path d="M60.6 42.4 Q65.5 37.4 70.4 42 Q65.5 46.6 60.6 42.4 Z" fill="#FCF8F2" />
+              <path d="M81 42 Q85.5 37.6 90 42 Q85.5 46.2 81 42 Z" fill="#EFE8DE" />
               {/* upper lid shadow — eyes without it always look pasted on */}
               <path d="M61 40 Q65.5 36.5 70 40" fill="none" stroke="#000" strokeOpacity="0.22" strokeWidth="2.6" />
               <circle cx={65.5 + gaze} cy={42 + gazeY} r="2.7" fill="#3B2A1C" />
