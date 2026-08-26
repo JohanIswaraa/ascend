@@ -1059,363 +1059,939 @@ function CarFigure({ tier, size = 120 }) {
     </svg>
   );
 }
-/* ---- isometric room ---- */
-/* the room diamond is tuned so all four floor corners and the wall tops
-   land inside the 400x320 viewBox — nothing clips at the card edge */
-const ISO_W = { x: 30, y: 212 };
-const ISO_DA = { x: 170, y: -94 };
-const ISO_DB = { x: 170, y: 94 };
-function isoPt(a, b) { return { x: ISO_W.x + a * ISO_DA.x + b * ISO_DB.x, y: ISO_W.y + a * ISO_DA.y + b * ISO_DB.y }; }
-function pStr(...pts) { return pts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" "); }
-function isoFloorQuad(a0, a1, b0, b1) { return pStr(isoPt(a0, b0), isoPt(a1, b0), isoPt(a1, b1), isoPt(a0, b1)); }
-function leftWallPt(a, h) { const p = isoPt(a, 0); return { x: p.x, y: p.y - h }; }
-function rightWallPt(b, h) { const p = isoPt(1, b); return { x: p.x, y: p.y - h }; }
-function wallQuad(side, u0, u1, h0, h1) { const f = side === "left" ? leftWallPt : rightWallPt; return pStr(f(u0, h0), f(u1, h0), f(u1, h1), f(u0, h1)); }
-function IsoBox({ a0, a1, b0, b1, h, top, right, left }) {
-  const P00 = isoPt(a0, b0), P10 = isoPt(a1, b0), P11 = isoPt(a1, b1), P01 = isoPt(a0, b1);
-  const up = (p) => ({ x: p.x, y: p.y - h });
-  const P00u = up(P00), P10u = up(P10), P11u = up(P11), P01u = up(P01);
-  /* AO: a blurred pool bled out from the footprint so the object is
-     bedded into the floor instead of pasted on top of it */
-  const g = 3.5;
-  const A0 = { x: P00.x - g, y: P00.y }, A1 = { x: P10.x, y: P10.y - g * 0.5 };
-  const A2 = { x: P11.x + g, y: P11.y + g * 0.5 }, A3 = { x: P01.x, y: P01.y + g };
+/* ==================================================================
+   ISOMETRIC ROOM RENDERER
+   A small renderer rather than a pile of drawings: one projection,
+   one light rig, one material model. Every object is built from the
+   same primitives, so a wardrobe and a coffee cup are lit by the
+   same sun and bed into the same floor.
+
+   Camera: true 2:1 isometric looking in at the south corner. Of a
+   solid's four vertical faces exactly two are visible — the one at
+   a0 (facing down-left) and the one at b1 (facing down-right).
+   Key light enters through the window in the left wall, so a0 faces
+   read warm, b1 faces fall into cool sky-fill, and every shadow in
+   the room travels the same way down the floor.
+   ================================================================== */
+
+const ISO_O = { x: 52, y: 266 };
+const ISO_A = { x: 170, y: -95 };   /* +a runs up-right, toward the north corner */
+const ISO_B = { x: 170, y: 95 };    /* +b runs down-right, toward the east corner */
+const WALL_H = 152;                 /* wall height, px */
+const WALL_T = 0.055;               /* wall slab thickness, room units */
+const FLOOR_T = 15;                 /* floor slab thickness, px */
+
+function isoPt(a, b, z = 0) {
+  return { x: ISO_O.x + a * ISO_A.x + b * ISO_B.x, y: ISO_O.y + a * ISO_A.y + b * ISO_B.y - z };
+}
+function pStr() { return Array.prototype.map.call(arguments, (p) => p.x.toFixed(1) + "," + p.y.toFixed(1)).join(" "); }
+function quad(a0, a1, b0, b1, z) { z = z || 0; return pStr(isoPt(a0, b0, z), isoPt(a1, b0, z), isoPt(a1, b1, z), isoPt(a0, b1, z)); }
+/* a plane of the left wall (b = 0) and of the right wall (a = 1) */
+const LW = (a, z) => isoPt(a, 0, z);
+const RW = (b, z) => isoPt(1, b, z);
+function wallQuad(side, u0, u1, z0, z1) { const f = side === "left" ? LW : RW; return pStr(f(u0, z0), f(u1, z0), f(u1, z1), f(u0, z1)); }
+
+/* ---- colour: every face is computed from one albedo, never hand-picked ---- */
+function _c(h) { h = h.replace("#", ""); if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2]; const n = parseInt(h, 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+function _h(r, g, b) { const q = (v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, "0"); return "#" + q(r) + q(g) + q(b); }
+function mixC(x, y, t) { const A = _c(x), B = _c(y); return _h(A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t, A[2] + (B[2] - A[2]) * t); }
+const lift = (c, t) => mixC(c, "#FFFFFF", t);
+const sink = (c, t) => mixC(c, "#05060C", t);
+const KEY_TINT = "#FFEAC6";   /* sun */
+const SKY_TINT = "#5C74A4";   /* sky bounce filling the shadow side */
+const fTop = (c) => mixC(lift(c, 0.24), KEY_TINT, 0.26);
+const fLit = (c) => mixC(lift(c, 0.02), KEY_TINT, 0.15);
+const fDim = (c) => mixC(sink(c, 0.36), SKY_TINT, 0.24);
+
+/* convex hull, so a cast shadow is the real silhouette of the solid swept
+   along the light — not a blurred copy of its own footprint */
+function hull(pts) {
+  const p = pts.slice().sort((m, n) => (m.x - n.x) || (m.y - n.y));
+  const cr = (o, a, b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+  const lo = [], up = [];
+  for (let i = 0; i < p.length; i++) { while (lo.length >= 2 && cr(lo[lo.length - 2], lo[lo.length - 1], p[i]) <= 0) lo.pop(); lo.push(p[i]); }
+  for (let i = p.length - 1; i >= 0; i--) { while (up.length >= 2 && cr(up[up.length - 2], up[up.length - 1], p[i]) <= 0) up.pop(); up.push(p[i]); }
+  lo.pop(); up.pop(); return lo.concat(up);
+}
+const SUN = { x: 0.40, y: 0.46 };   /* px of shadow travel per px of height */
+function Shadow({ a0, a1, b0, b1, z = 0, h, o = 0.42 }) {
+  const f = [[a0, b0], [a1, b0], [a1, b1], [a0, b1]].map((u) => isoPt(u[0], u[1], 0));
+  const lo = f.map((p) => ({ x: p.x + SUN.x * z, y: p.y + SUN.y * z }));
+  const hi = f.map((p) => ({ x: p.x + SUN.x * (z + h), y: p.y + SUN.y * (z + h) }));
+  return <polygon points={pStr.apply(null, hull(lo.concat(hi)))} fill="#04050A" opacity={o} filter="url(#shSoft)" />;
+}
+/* the soft pool right under a footprint — what beds an object into the floor */
+function Contact({ a0, a1, b0, b1, o = 0.46 }) {
+  return <polygon points={quad(a0 - 0.015, a1 + 0.015, b0 - 0.015, b1 + 0.015)} fill="#04050A" opacity={o} filter="url(#shSoft)" />;
+}
+
+/* ---- the one solid everything in the room is made of ---- */
+function Box({ a0, a1, b0, b1, z = 0, h, c, top, litc, dimc, gloss = 0, edge = true, shadow = true, so = 0.42, op }) {
+  const T = top || fTop(c), A = litc || fLit(c), D = dimc || fDim(c);
+  const P = isoPt, zt = z + h;
+  const a00 = P(a0, b0, z), a01 = P(a0, b1, z), a11 = P(a0, b1, zt), a10 = P(a0, b0, zt);
+  const d00 = P(a0, b1, z), d01 = P(a1, b1, z), d11 = P(a1, b1, zt), d10 = P(a0, b1, zt);
+  const t00 = P(a0, b0, zt), t10 = P(a1, b0, zt), t11 = P(a1, b1, zt), t01 = P(a0, b1, zt);
   return (
-    <g>
-      <polygon points={pStr(A0, A1, A2, A3)} fill="#05060A" opacity="0.62" filter="url(#aoBlur)" />
-      <polygon points={pStr(P01, P11, P11u, P01u)} fill={left} stroke="rgba(0,0,0,.55)" strokeWidth="1.4" />
-      <polygon points={pStr(P10, P11, P11u, P10u)} fill={right} stroke="rgba(0,0,0,.55)" strokeWidth="1.4" />
-      <polygon points={pStr(P00u, P10u, P11u, P01u)} fill={top} stroke="rgba(0,0,0,.55)" strokeWidth="1.4" />
-      {/* crevice darkening where the vertical faces meet the top */}
-      <polyline points={pStr(P01u, P11u, P10u)} fill="none" stroke="#000" strokeOpacity="0.3" strokeWidth="2" />
-      {/* a thin lit edge along the top rim reads as a real bevel */}
-      <polyline points={pStr(P00u, P10u)} fill="none" stroke="#fff" strokeOpacity="0.16" strokeWidth="1.2" />
+    <g opacity={op}>
+      {shadow && h > 0 && <Shadow a0={a0} a1={a1} b0={b0} b1={b1} z={z} h={h} o={so} />}
+      <polygon points={pStr(d00, d01, d11, d10)} fill={D} />
+      <polygon points={pStr(a00, a01, a11, a10)} fill={A} />
+      <polygon points={pStr(t00, t10, t11, t01)} fill={T} />
+      {gloss > 0 && <polygon points={pStr(t00, t10, t11, t01)} fill="url(#satin)" opacity={gloss} />}
+      {edge && (
+        <g>
+          <polyline points={pStr(t00, t01)} fill="none" stroke="#fff" strokeOpacity="0.26" strokeWidth="1" />
+          <polyline points={pStr(t01, t11)} fill="none" stroke="#fff" strokeOpacity="0.10" strokeWidth="1" />
+          <polyline points={pStr(t00, t10)} fill="none" stroke="#000" strokeOpacity="0.26" strokeWidth="1" />
+          <line x1={a01.x} y1={a01.y} x2={a11.x} y2={a11.y} stroke="#fff" strokeOpacity="0.13" strokeWidth="1" />
+        </g>
+      )}
     </g>
   );
 }
-/* palettes tuned like an interior render: warm timber floors, muted
-   walls that let the light do the work, one accent per space */
-const ROOM_THEMES = {
-  none: { wallL: "#26282F", wallR: "#1B1D23", floorA: "#3B3229", floorB: "#332B23", trim: "#5A5F6B", lamp: "#E8D9C0" },
-  prop_apt: { wallL: "#3D4655", wallR: "#2C3340", floorA: "#7A5636", floorB: "#6A4A2E", trim: "#8D99B0", lamp: "#FFD9A0" },
-  prop_house: { wallL: "#4E5B4C", wallR: "#3A443A", floorA: "#8A6039", floorB: "#77522F", trim: "#D8A25A", lamp: "#FFC183" },
-  prop_villa: { wallL: "#2C5A60", wallR: "#1F444A", floorA: "#C4B396", floorB: "#B0A084", trim: "#7EE8DC", lamp: "#FFB07A" },
-  prop_mansion: { wallL: "#463253", wallR: "#332440", floorA: "#4A3A2E", floorB: "#3E3126", trim: "#F0C25A", lamp: "#FFE0A0" },
-};
-function IsoRug({ a0, a1, b0, b1, base, accent }) {
+/* a turned solid: legs, poles, pots, vases, mugs */
+function Cyl({ p, z = 0, h, r, rt, c, cap = true, shadow = false }) {
+  const top = rt == null ? r : rt, y = p.y - z;
   return (
     <g>
-      <polygon points={isoFloorQuad(a0, a1, b0, b1)} fill={base} />
-      <polygon points={isoFloorQuad(a0 + 0.025, a1 - 0.025, b0 + 0.025, b1 - 0.025)} fill="none" stroke={accent} strokeWidth="1.2" opacity="0.6" />
+      {shadow && <ellipse cx={p.x + SUN.x * h * 0.55} cy={y + SUN.y * h * 0.55} rx={r * 1.6} ry={r * 0.85} fill="#04050A" opacity="0.4" filter="url(#shSoft)" />}
+      <ellipse cx={p.x} cy={y} rx={r} ry={r * 0.5} fill={fDim(c)} />
+      <path d={`M${p.x - r} ${y} L${p.x - top} ${y - h} L${p.x + top} ${y - h} L${p.x + r} ${y} Z`} fill={fLit(c)} />
+      <path d={`M${p.x - r} ${y} L${p.x - top} ${y - h} L${p.x + top} ${y - h} L${p.x + r} ${y} Z`} fill="url(#turn)" />
+      {cap && <ellipse cx={p.x} cy={y - h} rx={top} ry={top * 0.5} fill={fTop(c)} />}
     </g>
   );
 }
-function IsoLamp({ a, b, h = 44, shade, flicker }) {
-  const base = isoPt(a, b), tip = { x: base.x, y: base.y - h };
+
+/* ========================== furniture ========================== */
+
+/* 3mm of wool, not a decal — thickness, a border, and a fringe */
+function Rug({ a0, a1, b0, b1, base, accent, pattern = "band" }) {
+  const ins = 0.038, ma = (a0 + a1) / 2, mb = (b0 + b1) / 2;
   return (
     <g>
-      <line x1={base.x} y1={base.y} x2={tip.x} y2={tip.y} stroke="#2a2a30" strokeWidth="2.2" />
-      <ellipse cx={base.x} cy={base.y + 1} rx="9" ry="3" fill="#111116" />
-      <path d={`M${tip.x - 11} ${tip.y} L${tip.x + 11} ${tip.y} L${tip.x + 7} ${tip.y - 12} L${tip.x - 7} ${tip.y - 12} Z`} fill={shade} opacity="0.92" />
-      <circle className={flicker ? "lampFlicker" : ""} cx={tip.x} cy={tip.y - 2} r="13" fill={shade} opacity="0.3" />
+      <Contact a0={a0} a1={a1} b0={b0} b1={b1} o={0.3} />
+      <Box a0={a0} a1={a1} b0={b0} b1={b1} h={2.6} c={base} shadow={false} edge={false} />
+      <polygon points={quad(a0 + ins, a1 - ins, b0 + ins, b1 - ins, 2.7)} fill="none" stroke={accent} strokeWidth="1.6" opacity="0.7" />
+      {pattern === "band" && (
+        <g opacity="0.45">
+          <polygon points={quad(a0 + 0.09, a1 - 0.09, b0 + 0.1, b0 + 0.14, 2.7)} fill={accent} />
+          <polygon points={quad(a0 + 0.09, a1 - 0.09, b1 - 0.14, b1 - 0.1, 2.7)} fill={accent} />
+        </g>
+      )}
+      {pattern === "medallion" && (
+        <g opacity="0.4">
+          <polygon points={quad(ma - 0.1, ma + 0.1, mb - 0.1, mb + 0.1, 2.7)} fill={accent} />
+          <polygon points={quad(ma - 0.045, ma + 0.045, mb - 0.045, mb + 0.045, 2.7)} fill={lift(base, 0.32)} />
+        </g>
+      )}
+      {Array.from({ length: 13 }, (_, i) => {
+        const t = a0 + ((i + 0.5) / 13) * (a1 - a0);
+        const p = isoPt(t, b1, 2.6), q = isoPt(t, b1 + 0.015, 0.6);
+        return <line key={i} x1={p.x} y1={p.y} x2={q.x} y2={q.y} stroke={lift(base, 0.38)} strokeWidth="0.9" opacity="0.55" />;
+      })}
     </g>
   );
 }
-/* framed art / poster hung flat on either wall */
-function IsoFrame({ side, u0, u1, h0, h1, fill, frame = "#1a1a20" }) {
+
+/* upholstery: a plinth, two arms, a back, and cushions proud of the frame */
+function Sofa({ a0, a1, b0, b1, body, cushion, pillow }) {
+  const arm = 0.055, back = 0.065, sz = 11;
   return (
     <g>
-      <polygon points={wallQuad(side, u0, u1, h0, h1)} fill={frame} />
-      <polygon points={wallQuad(side, u0 + 0.012, u1 - 0.012, h0 + 5, h1 - 5)} fill={fill} />
+      <Contact a0={a0} a1={a1} b0={b0} b1={b1} o={0.48} />
+      <Box a0={a0 + 0.01} a1={a1 - 0.01} b0={b0 + 0.01} b1={b1 - 0.01} z={0} h={sz} c={sink(body, 0.28)} />
+      <Box a0={a0} a1={a1} b0={b0} b1={b0 + back} z={sz} h={32} c={body} gloss={0.08} shadow={false} />
+      <Box a0={a0} a1={a0 + arm} b0={b0} b1={b1} z={sz} h={20} c={lift(body, 0.06)} shadow={false} />
+      <Box a0={a1 - arm} a1={a1} b0={b0} b1={b1} z={sz} h={20} c={sink(body, 0.05)} shadow={false} />
+      {[0, 1].map((i) => {
+        const w = (a1 - a0 - arm * 2) / 2, s = a0 + arm + i * w;
+        return (
+          <g key={i}>
+            <Box a0={s + 0.005} a1={s + w - 0.005} b0={b0 + back} b1={b1 - 0.014} z={sz} h={12} c={cushion} gloss={0.18} so={0.26} />
+            <Box a0={s + 0.009} a1={s + w - 0.009} b0={b0 + back - 0.006} b1={b0 + back + 0.034} z={sz + 10} h={20} c={lift(cushion, 0.05)} shadow={false} />
+          </g>
+        );
+      })}
+      <Box a0={a0 + arm + 0.022} a1={a0 + arm + 0.078} b0={b0 + back + 0.022} b1={b0 + back + 0.064} z={sz + 11} h={9} c={pillow} gloss={0.22} so={0.22} />
     </g>
   );
 }
-/* potted plant whose leaves drift, so the room is never fully still */
-function IsoPlant({ a, b, scale = 1, pot = "#8A4A32", leaf = "#3FA55C" }) {
+
+/* a made bed: frame, mattress, a duvet with the top sheet turned over */
+function Bed({ a0, a1, b0, b1, frame, duvet, sheet, pillow }) {
+  return (
+    <g>
+      <Contact a0={a0} a1={a1} b0={b0} b1={b1} o={0.5} />
+      <Box a0={a0 + 0.012} a1={a1 - 0.012} b0={b0 + 0.012} b1={b1 - 0.012} z={0} h={14} c={sink(frame, 0.18)} />
+      <Box a0={a0 - 0.012} a1={a1 + 0.012} b0={b0 - 0.014} b1={b0 + 0.018} z={0} h={54} c={frame} gloss={0.12} />
+      <Box a0={a0} a1={a1} b0={b0 + 0.018} b1={b1} z={14} h={14} c={sheet} shadow={false} gloss={0.08} />
+      <Box a0={a0 - 0.004} a1={a1 + 0.004} b0={b0 + 0.15} b1={b1 + 0.01} z={26} h={10} c={duvet} gloss={0.14} so={0.26} />
+      <Box a0={a0 - 0.004} a1={a1 + 0.004} b0={b0 + 0.15} b1={b0 + 0.2} z={34} h={5} c={lift(duvet, 0.18)} shadow={false} edge={false} />
+      {[0, 1].map((i) => {
+        const w = (a1 - a0 - 0.03) / 2, s = a0 + 0.015 + i * w;
+        return <Box key={i} a0={s + 0.008} a1={s + w - 0.008} b0={b0 + 0.045} b1={b0 + 0.12} z={28} h={10} c={pillow} gloss={0.24} so={0.2} />;
+      })}
+    </g>
+  );
+}
+
+/* a desk with real legs, a monitor that is on, and the clutter of use */
+function Desk({ a0, a1, b0, b1, wood, metal, screen = "#2E6BA8", accent }) {
+  const tz = 36, mid = (a0 + a1) / 2, sb = b0 + 0.038;
+  const sc = (u0, u1, z0, z1) => pStr(isoPt(u0, sb, z0), isoPt(u1, sb, z0), isoPt(u1, sb, z1), isoPt(u0, sb, z1));
+  return (
+    <g>
+      <Contact a0={a0} a1={a1} b0={b0} b1={b1} o={0.36} />
+      {[[a0 + 0.02, b0 + 0.02], [a1 - 0.02, b0 + 0.02], [a0 + 0.02, b1 - 0.02], [a1 - 0.02, b1 - 0.02]].map((L, i) => (
+        <Cyl key={i} p={isoPt(L[0], L[1])} h={tz} r={2.6} c={metal} />
+      ))}
+      <Box a0={a0} a1={a1} b0={b0} b1={b1} z={tz} h={5} c={wood} gloss={0.28} />
+      <Box a0={mid - 0.05} a1={mid + 0.05} b0={sb - 0.008} b1={sb + 0.014} z={tz + 5} h={4} c={metal} shadow={false} />
+      <Cyl p={isoPt(mid, sb + 0.004)} z={tz + 8} h={13} r={3} c={metal} />
+      <polygon points={sc(mid - 0.105, mid + 0.105, tz + 19, tz + 58)} fill="#0D1016" />
+      <g className="tvFlicker">
+        <polygon points={sc(mid - 0.098, mid + 0.098, tz + 21, tz + 56)} fill={screen} />
+        <polygon points={sc(mid - 0.098, mid + 0.098, tz + 21, tz + 38)} fill={lift(screen, 0.3)} opacity="0.55" />
+      </g>
+      <polygon points={sc(mid - 0.13, mid + 0.13, tz + 12, tz + 66)} fill={lift(screen, 0.4)} opacity="0.16" filter="url(#glowSoft)" style={{ mixBlendMode: "screen" }} />
+      <Box a0={mid - 0.07} a1={mid + 0.05} b0={b1 - 0.08} b1={b1 - 0.035} z={tz + 5} h={3} c={sink(metal, 0.18)} shadow={false} edge={false} />
+      <Box a0={mid + 0.072} a1={mid + 0.096} b0={b1 - 0.072} b1={b1 - 0.046} z={tz + 5} h={3} c={metal} shadow={false} edge={false} />
+      <Mug a={a0 + 0.05} b={b1 - 0.05} z={tz + 5} c={accent || "#E8E4D8"} />
+    </g>
+  );
+}
+
+/* a swivel chair: five-star base, gas lift, seat, back */
+function Chair({ a, b, c, metal }) {
   const p = isoPt(a, b);
-  const s = scale;
   return (
     <g>
-      <path d={`M${p.x - 9 * s} ${p.y - 14 * s} L${p.x + 9 * s} ${p.y - 14 * s} L${p.x + 7 * s} ${p.y} L${p.x - 7 * s} ${p.y} Z`} fill={pot} />
-      <path d={`M${p.x - 9 * s} ${p.y - 14 * s} L${p.x + 9 * s} ${p.y - 14 * s} L${p.x + 8 * s} ${p.y - 11 * s} L${p.x - 8 * s} ${p.y - 11 * s} Z`} fill="#000" opacity="0.28" />
+      <ellipse cx={p.x + 9} cy={p.y + 5} rx="22" ry="11" fill="#04050A" opacity="0.4" filter="url(#shSoft)" />
+      {[0, 1, 2, 3, 4].map((i) => {
+        const ang = (i / 5) * Math.PI * 2 + 0.5;
+        return <line key={i} x1={p.x} y1={p.y - 4} x2={p.x + Math.cos(ang) * 18} y2={p.y - 4 + Math.sin(ang) * 9} stroke={fDim(metal)} strokeWidth="3.4" strokeLinecap="round" />;
+      })}
+      <Cyl p={p} z={2} h={23} r={3} c={metal} />
+      <Box a0={a - 0.052} a1={a + 0.052} b0={b - 0.052} b1={b + 0.052} z={25} h={9} c={c} gloss={0.16} shadow={false} />
+      <Box a0={a - 0.05} a1={a + 0.05} b0={b - 0.054} b1={b - 0.03} z={34} h={46} c={lift(c, 0.05)} gloss={0.12} shadow={false} />
+    </g>
+  );
+}
+
+/* a carcass with real shelves, a dark interior, and books of varied height */
+function Bookcase({ a0, a1, b0, b1, wood, back, books, H = 100, rows = 4 }) {
+  const face = (u0, u1, z0, z1) => pStr(isoPt(u0, b1 - 0.004, z0), isoPt(u1, b1 - 0.004, z0), isoPt(u1, b1 - 0.004, z1), isoPt(u0, b1 - 0.004, z1));
+  return (
+    <g>
+      <Contact a0={a0} a1={a1} b0={b0} b1={b1} o={0.5} />
+      <Box a0={a0} a1={a1} b0={b0} b1={b1} z={0} h={H} c={wood} gloss={0.08} />
+      <polygon points={face(a0 + 0.016, a1 - 0.016, 7, H - 7)} fill={sink(back, 0.45)} />
+      {Array.from({ length: rows }, (_, i) => {
+        const z = 7 + ((i + 1) / (rows + 1)) * (H - 14), row = books[i % books.length] || [];
+        return (
+          <g key={i}>
+            <polygon points={face(a0 + 0.016, a1 - 0.016, z, z + 2.6)} fill={lift(wood, 0.14)} />
+            {row.map((col, k) => {
+              const w = (a1 - a0 - 0.045) / row.length, s = a0 + 0.022 + k * w, bh = 13 + ((k * 7 + i * 5) % 9);
+              return <polygon key={k} points={face(s + 0.004, s + w - 0.004, z + 2.6, z + 2.6 + bh)} fill={col} />;
+            })}
+          </g>
+        );
+      })}
+    </g>
+  );
+}
+
+/* fronds that actually splay, and drift on a loop */
+function Plant({ a, b, s = 1, pot = "#9A5638", leaf = "#3FA55C" }) {
+  const p = isoPt(a, b), ph = 22 * s;
+  return (
+    <g>
+      <ellipse cx={p.x + 9 * s} cy={p.y + 3} rx={16 * s} ry={7.5 * s} fill="#04050A" opacity="0.4" filter="url(#shSoft)" />
+      <Cyl p={p} h={ph} r={14 * s} rt={11.5 * s} c={pot} cap={false} />
+      <ellipse cx={p.x} cy={p.y - ph} rx={11.5 * s} ry={5.8 * s} fill="#2B1D14" />
       <g className="leafSway">
-        <ellipse cx={p.x} cy={p.y - 30 * s} rx={13 * s} ry={17 * s} fill={leaf} />
-        <ellipse cx={p.x - 11 * s} cy={p.y - 22 * s} rx={9 * s} ry={12 * s} fill={leaf} opacity="0.85" transform={`rotate(-32 ${p.x - 11 * s} ${p.y - 22 * s})`} />
-        <ellipse cx={p.x + 11 * s} cy={p.y - 23 * s} rx={8 * s} ry={11 * s} fill="#2F8749" transform={`rotate(30 ${p.x + 11 * s} ${p.y - 23 * s})`} />
-        <ellipse cx={p.x - 3 * s} cy={p.y - 36 * s} rx={5 * s} ry={7 * s} fill="#57C071" />
+        {[[-1, 0.85, -36], [1, 0.9, 32], [-0.52, 1.16, -13], [0.56, 1.1, 15], [0.02, 1.34, 1]].map((L, i) => {
+          const x = p.x + L[0] * 16 * s, y = p.y - ph - L[1] * 24 * s;
+          return (
+            <g key={i} transform={`rotate(${L[2]} ${x} ${y + 15 * s})`}>
+              <path d={`M${x} ${y + 17 * s} Q${x - 11 * s} ${y + 2 * s} ${x} ${y - 15 * s} Q${x + 11 * s} ${y + 2 * s} ${x} ${y + 17 * s} Z`}
+                fill={i % 2 ? mixC(leaf, "#0B2A19", 0.34) : lift(leaf, 0.06)} />
+              <path d={`M${x} ${y + 16 * s} L${x} ${y - 13 * s}`} stroke={lift(leaf, 0.28)} strokeWidth={0.9 * s} opacity="0.65" />
+            </g>
+          );
+        })}
       </g>
     </g>
   );
 }
-/* a mug on a surface, steaming — the smallest detail that sells "lived in" */
-function IsoMug({ a, b, h = 0, color = "#E8E4D8" }) {
-  const p = isoPt(a, b);
-  const y = p.y - h;
+
+/* the smallest object in the room, and the one that sells "lived in" */
+function Mug({ a, b, z = 0, c = "#E8E4D8" }) {
+  const p = isoPt(a, b, z);
   return (
     <g>
       {[0, 1, 2].map((i) => (
-        <ellipse key={i} className="steamRise" cx={p.x + (i - 1) * 2.5} cy={y - 9} rx="2.2" ry="3" fill="#fff" opacity="0.5" style={{ animationDelay: `${i * 1.1}s` }} />
+        <ellipse key={i} className="steamRise" cx={p.x + (i - 1) * 2.4} cy={p.y - 15} rx="2" ry="2.8" fill="#fff" opacity="0.4" style={{ animationDelay: `${i * 1.1}s` }} />
       ))}
-      <rect x={p.x - 4} y={y - 8} width="8" height="8" rx="1.5" fill={color} stroke="rgba(0,0,0,.45)" strokeWidth="0.8" />
-      <path d={`M${p.x + 4} ${y - 6} q4 2 0 4`} fill="none" stroke={color} strokeWidth="1.5" />
-      <ellipse cx={p.x} cy={y - 8} rx="4" ry="1.4" fill="#4A2E1C" />
+      <ellipse cx={p.x + 4} cy={p.y + 1} rx="6.5" ry="3" fill="#04050A" opacity="0.38" />
+      <Cyl p={p} h={9} r={4.4} c={c} cap={false} />
+      <ellipse cx={p.x} cy={p.y - 9} rx="4.4" ry="2.2" fill="#3B2214" />
+      <path d={`M${p.x + 4.2} ${p.y - 6.4} q4.6 2 0 4.4`} fill="none" stroke={fLit(c)} strokeWidth="1.5" />
     </g>
   );
 }
-/* wall-mounted TV playing something — flicker plus a rolling scanline */
-function IsoScreen({ side, u0, u1, h0, h1 }) {
-  const id = `scr${side}${Math.round(u0 * 100)}`;
+
+/* a lamp that actually lights the floor it is standing on */
+function FloorLamp({ a, b, h = 98, shade = "#FFD9A0", metal = "#39404C" }) {
+  const p = isoPt(a, b), y = p.y - h;
   return (
     <g>
-      <polygon points={wallQuad(side, u0 - 0.012, u1 + 0.012, h0 - 4, h1 + 4)} fill="#0C0D11" />
-      <clipPath id={id}><polygon points={wallQuad(side, u0, u1, h0, h1)} /></clipPath>
-      <polygon points={wallQuad(side, u0, u1, h0, h1)} fill="#2E6BA8" className="tvFlicker" />
+      <ellipse cx={p.x + 8} cy={p.y - 1} rx="48" ry="24" fill={shade} opacity="0.17" filter="url(#glowSoft)" style={{ mixBlendMode: "screen" }} />
+      <ellipse cx={p.x} cy={p.y} rx="13" ry="6.5" fill={fTop(metal)} />
+      <Cyl p={p} h={h} r={2.2} c={metal} cap={false} />
+      <path d={`M${p.x - 17} ${y} L${p.x} ${y} L${p.x} ${y - 23} L${p.x - 10} ${y - 23} Z`} fill={fLit(shade)} />
+      <path d={`M${p.x} ${y} L${p.x + 17} ${y} L${p.x + 10} ${y - 23} L${p.x} ${y - 23} Z`} fill={fDim(shade)} />
+      <ellipse cx={p.x} cy={y - 23} rx="10" ry="4" fill={fTop(shade)} />
+      <ellipse cx={p.x} cy={y} rx="17" ry="6" fill={lift(shade, 0.55)} opacity="0.92" className="lampFlicker" />
+      <ellipse cx={p.x} cy={y + 6} rx="32" ry="18" fill={shade} opacity="0.28" filter="url(#glowSoft)" style={{ mixBlendMode: "screen" }} />
+    </g>
+  );
+}
+
+/* framed art hung flat on a wall, with its own shadow on the plaster */
+function WallArt({ side, u0, u1, z0, z1, fill, frame = "#171922", art = "abstract" }) {
+  const id = "wa" + side + Math.round(u0 * 1000) + Math.round(z0);
+  const d = side === "left" ? 0.012 : -0.012;
+  return (
+    <g>
+      <polygon points={wallQuad(side, u0 + d, u1 + d, z0 - 6, z1 - 6)} fill="#04050A" opacity="0.4" filter="url(#shSoft)" />
+      <polygon points={wallQuad(side, u0, u1, z0, z1)} fill={side === "left" ? fLit(frame) : fDim(frame)} />
+      <polygon points={wallQuad(side, u0 + 0.009, u1 - 0.009, z0 + 5, z1 - 5)} fill="#0C0D12" />
+      <clipPath id={id}><polygon points={wallQuad(side, u0 + 0.009, u1 - 0.009, z0 + 5, z1 - 5)} /></clipPath>
       <g clipPath={`url(#${id})`}>
-        <polygon points={wallQuad(side, u0, u1, h0 + (h1 - h0) * 0.55, h1)} fill="#5AA0D8" opacity="0.55" />
-        <polygon points={wallQuad(side, u0, u1, h0, h0 + 6)} fill="#fff" opacity="0.28" className="tvScan" />
+        <polygon points={wallQuad(side, u0 + 0.009, u1 - 0.009, z0 + 5, z1 - 5)} fill={fill} />
+        {art === "abstract" && (
+          <g>
+            <polygon points={wallQuad(side, u0 + 0.022, u1 - 0.055, z0 + 9, z1 - 24)} fill={lift(fill, 0.48)} opacity="0.85" />
+            <polygon points={wallQuad(side, u0 + 0.055, u1 - 0.016, z0 + 20, z1 - 9)} fill={sink(fill, 0.38)} opacity="0.8" />
+          </g>
+        )}
+        {art === "horizon" && (
+          <g>
+            <polygon points={wallQuad(side, u0, u1, z0 + 5, (z0 + z1) / 2)} fill={sink(fill, 0.45)} />
+            <polygon points={wallQuad(side, u0 + 0.03, u0 + 0.058, (z0 + z1) / 2 + 5, (z0 + z1) / 2 + 14)} fill={lift(fill, 0.62)} />
+          </g>
+        )}
+        {art === "bust" && <polygon points={wallQuad(side, (u0 + u1) / 2 - 0.022, (u0 + u1) / 2 + 0.022, z0 + 10, z1 - 10)} fill={lift(fill, 0.5)} />}
+        <polygon points={wallQuad(side, u0 + 0.009, u0 + 0.048, z0 + 5, z1 - 5)} fill="#fff" opacity="0.08" />
       </g>
-      <polygon points={wallQuad(side, u0, u1, h0, h1)} fill="none" stroke="#05060A" strokeWidth="1.6" />
+      <polygon points={wallQuad(side, u0, u1, z0, z1)} fill="none" stroke="#000" strokeOpacity="0.45" strokeWidth="1.2" />
     </g>
   );
 }
-/* wall-mounted shelf with a row of little objects on it */
-function IsoShelf({ side, u0, u1, h, colors }) {
-  const f = side === "left" ? leftWallPt : rightWallPt;
+
+/* a wall-hung panel genuinely emitting into the room */
+function WallTV({ side, u0, u1, z0, z1 }) {
+  const id = "tv" + side + Math.round(u0 * 1000);
   return (
     <g>
-      <polygon points={wallQuad(side, u0, u1, h, h + 4)} fill="#6b5738" stroke="rgba(0,0,0,.5)" strokeWidth="1" />
-      {colors.map((c, i) => {
-        const u = u0 + ((i + 0.5) / colors.length) * (u1 - u0);
-        const p = f(u, h + 4);
-        return <rect key={i} x={p.x - 2.5} y={p.y - 11} width="5" height="11" fill={c} stroke="rgba(0,0,0,.45)" strokeWidth="0.8" />;
+      <polygon points={wallQuad(side, u0 - 0.04, u1 + 0.04, z0 - 16, z1 + 16)} fill="#7CC4FF" opacity="0.15" filter="url(#glowSoft)" style={{ mixBlendMode: "screen" }} />
+      <polygon points={wallQuad(side, u0 - 0.009, u1 + 0.009, z0 - 3, z1 + 3)} fill="#090A0E" />
+      <clipPath id={id}><polygon points={wallQuad(side, u0, u1, z0, z1)} /></clipPath>
+      <polygon points={wallQuad(side, u0, u1, z0, z1)} fill="#1F5182" className="tvFlicker" />
+      <g clipPath={`url(#${id})`}>
+        <polygon points={wallQuad(side, u0, u1, (z0 + z1) / 2, z1)} fill="#5AA0D8" opacity="0.5" />
+        <polygon points={wallQuad(side, u0, u1, z1 - 8, z1)} fill="#fff" opacity="0.2" className="tvScan" />
+      </g>
+      <polygon points={wallQuad(side, u0, u1, z0, z1)} fill="none" stroke="#05060A" strokeWidth="1.4" />
+    </g>
+  );
+}
+
+/* a sideboard: drawers, handles, and whatever is standing on top */
+function Sideboard({ a0, a1, b0, b1, wood, metal, children }) {
+  const H = 44;
+  const face = (u0, u1, z0, z1) => pStr(isoPt(u0, b1 - 0.002, z0), isoPt(u1, b1 - 0.002, z0), isoPt(u1, b1 - 0.002, z1), isoPt(u0, b1 - 0.002, z1));
+  return (
+    <g>
+      <Contact a0={a0} a1={a1} b0={b0} b1={b1} o={0.48} />
+      <Cyl p={isoPt(a0 + 0.022, b1 - 0.022)} h={6} r={2} c={metal} />
+      <Cyl p={isoPt(a1 - 0.022, b1 - 0.022)} h={6} r={2} c={metal} />
+      <Box a0={a0} a1={a1} b0={b0} b1={b1} z={5} h={H} c={wood} gloss={0.16} />
+      {[0, 1, 2].map((i) => {
+        const w = (a1 - a0) / 3, s = a0 + i * w, p = isoPt(s + w / 2, b1 - 0.002, 5 + H / 2);
+        return (
+          <g key={i}>
+            <polygon points={face(s + 0.009, s + w - 0.009, 10, 5 + H - 4)} fill="none" stroke="#000" strokeOpacity="0.32" strokeWidth="1" />
+            <line x1={p.x - 6} y1={p.y} x2={p.x + 6} y2={p.y} stroke={fTop(metal)} strokeWidth="2" strokeLinecap="round" />
+          </g>
+        );
+      })}
+      {children}
+    </g>
+  );
+}
+
+/* a cabinet standing against the lit wall, so its drawers face the room */
+function Console({ a0, a1, b0, b1, wood, metal, H = 42 }) {
+  const face = (v0, v1, z0, z1) => pStr(isoPt(a0 + 0.002, v0, z0), isoPt(a0 + 0.002, v1, z0), isoPt(a0 + 0.002, v1, z1), isoPt(a0 + 0.002, v0, z1));
+  return (
+    <g>
+      <Contact a0={a0} a1={a1} b0={b0} b1={b1} o={0.48} />
+      <Cyl p={isoPt(a0 + 0.02, b0 + 0.03)} h={6} r={2} c={metal} />
+      <Cyl p={isoPt(a0 + 0.02, b1 - 0.03)} h={6} r={2} c={metal} />
+      <Box a0={a0} a1={a1} b0={b0} b1={b1} z={5} h={H} c={wood} gloss={0.16} />
+      {[0, 1, 2].map((i) => {
+        const w = (b1 - b0) / 3, v = b0 + i * w, p = isoPt(a0 + 0.002, v + w / 2, 5 + H / 2);
+        return (
+          <g key={i}>
+            <polygon points={face(v + 0.012, v + w - 0.012, 10, 5 + H - 4)} fill="none" stroke="#000" strokeOpacity="0.3" strokeWidth="1" />
+            <line x1={p.x - 5} y1={p.y - 3} x2={p.x + 5} y2={p.y + 3} stroke={fTop(metal)} strokeWidth="2" strokeLinecap="round" />
+          </g>
+        );
       })}
     </g>
   );
 }
-function furnitureFor(propId, stage) {
-  const top = leftWallPt(1, 0);
-  const trophyShelf = stage >= 10 && (
-    <g key="trophyshelf">
-      <IsoBox a0={0.04} a1={0.2} b0={0.04} b1={0.14} h={8} top="#B8983F" right="#6b5225" left="#8a6c2c" />
-      {[0, 1, 2].map((i) => <rect key={i} x={isoPt(0.06 + i * 0.05, 0.09).x - 3} y={isoPt(0.06 + i * 0.05, 0.09).y - 8 - 14} width="6" height="14" fill={["#F5D77A", "#B968FF", "#4FA3FF"][i]} className="gemGlint" style={{ animationDelay: `${i * 0.25}s` }} />)}
+/* water sunk below the floor, with coping around it and light on the surface */
+function Pool({ a0, a1, b0, b1, deep, water }) {
+  const i = 0.022;
+  return (
+    <g>
+      <polygon points={quad(a0, a1, b0, b1)} fill={fTop(mixC(deep, "#FFFFFF", 0.5))} />
+      <polygon points={quad(a0 + i, a1 - i, b0 + i, b1 - i)} fill={sink(deep, 0.45)} />
+      <polygon points={quad(a0 + i, a1 - i, b0 + i, b1 - i)} fill={water} opacity="0.86" />
+      <polygon points={quad(a0 + i, a1 - i, b0 + i, b1 - i)} fill="url(#satin)" opacity="0.35" />
+      {/* the lip nearest the light stays dark, which is what reads as depth */}
+      <polyline points={pStr(isoPt(a0 + i, b1 - i), isoPt(a0 + i, b0 + i), isoPt(a1 - i, b0 + i))} fill="none" stroke="#04050A" strokeOpacity="0.5" strokeWidth="5" filter="url(#shSoft)" />
+      {[0, 1, 2].map((k) => {
+        const bb = b0 + i + ((k + 1) / 4) * (b1 - b0 - i * 2);
+        return (
+          <path key={k} className="godRay" style={{ animationDelay: `${k * 1.3}s` }} fill="none" stroke={lift(water, 0.6)} strokeWidth="1.5" opacity="0.55"
+            d={`M${isoPt(a0 + 0.06, bb).x} ${isoPt(a0 + 0.06, bb).y} Q${isoPt((a0 + a1) / 2, bb - 0.03).x} ${isoPt((a0 + a1) / 2, bb - 0.03).y} ${isoPt(a1 - 0.06, bb).x} ${isoPt(a1 - 0.06, bb).y}`} />
+        );
+      })}
     </g>
   );
+}
+/* a low glass table — the one transparent thing in the room */
+function GlassTable({ a0, a1, b0, b1, metal, accent }) {
+  const tz = 26;
+  return (
+    <g>
+      <Contact a0={a0} a1={a1} b0={b0} b1={b1} o={0.3} />
+      {[[a0 + 0.018, b0 + 0.018], [a1 - 0.018, b0 + 0.018], [a0 + 0.018, b1 - 0.018], [a1 - 0.018, b1 - 0.018]].map((L, i) => (
+        <Cyl key={i} p={isoPt(L[0], L[1])} h={tz} r={2.2} c={metal} />
+      ))}
+      <Box a0={a0} a1={a1} b0={b0} b1={b1} z={tz} h={2.6} c="#BFD6E4" gloss={0.5} shadow={false} op={0.42} />
+      <polygon points={quad(a0, a1, b0, b1, tz + 2.6)} fill="none" stroke="#DCEBF5" strokeOpacity="0.5" strokeWidth="1" />
+      <polygon points={quad(a0 + 0.03, a0 + 0.12, b0 + 0.03, b1 - 0.03, tz + 2.7)} fill="#fff" opacity="0.13" />
+      <Box a0={a0 + 0.05} a1={a0 + 0.12} b0={b0 + 0.06} b1={b0 + 0.13} z={tz + 2.6} h={4} c={accent} shadow={false} />
+      <Box a0={a0 + 0.055} a1={a0 + 0.115} b0={b0 + 0.065} b1={b0 + 0.125} z={tz + 6.6} h={3} c={lift(accent, 0.3)} shadow={false} />
+    </g>
+  );
+}
+
+/* ========================== the shell ========================== */
+/* palettes read like an interior render: timber floors, muted plaster
+   that lets the light do the work, one accent per space */
+const ROOM_THEMES = {
+  none:          { wallL: "#2B2E38", wallR: "#343845", floor: "#4A3A2C", floor2: "#3E3125", trim: "#606676", lamp: "#E8D9C0", sky: "#2A3350", view: "city",  accent: "#7C5CFF" },
+  prop_apt:      { wallL: "#333B4B", wallR: "#414B5E", floor: "#7A5636", floor2: "#6A4A2E", trim: "#8D99B0", lamp: "#FFD9A0", sky: "#3D5C8A", view: "city",  accent: "#4FA3FF" },
+  prop_house:    { wallL: "#3F4A42", wallR: "#4E5B4C", floor: "#8A6039", floor2: "#77522F", trim: "#D8A25A", lamp: "#FFC183", sky: "#5B7FA8", view: "hills", accent: "#E8B25C" },
+  prop_villa:    { wallL: "#23484E", wallR: "#2E5C63", floor: "#C4B396", floor2: "#B0A084", trim: "#7EE8DC", lamp: "#FFB07A", sky: "#4FA8C4", view: "sea",   accent: "#5CE0D8" },
+  prop_mansion:  { wallL: "#382845", wallR: "#463253", floor: "#4A3A2E", floor2: "#3E3126", trim: "#F0C25A", lamp: "#FFE0A0", sky: "#33406E", view: "hills", accent: "#F0C25A" },
+  prop_penthouse:{ wallL: "#242833", wallR: "#2F3542", floor: "#2E3138", floor2: "#26282E", trim: "#9FB6D8", lamp: "#CFE2FF", sky: "#16203C", view: "city",  accent: "#9FB6D8" },
+  prop_island:   { wallL: "#3A4438", wallR: "#4A5644", floor: "#C9AF84", floor2: "#B79C72", trim: "#8ADFA0", lamp: "#FFD08A", sky: "#59C4D8", view: "sea",   accent: "#3FBF6A" },
+};
+
+/* the view through the glass — the only thing in the scene that is not in
+   the room. Everything is laid out against the opening's own bounds, so it
+   reads the same whether the window is a slit or a whole glass wall. */
+function WindowView({ kind, sky, lamp, box, night }) {
+  const w = box.x1 - box.x0, h = box.y1 - box.y0;
+  const X = box.x0 - w * 0.3, W = w * 1.6;
+  const hz = box.y0 + h * 0.66;             /* horizon */
+  const deep = mixC(sky, "#05070F", 0.68);
+  return (
+    <g>
+      <rect x={X} y={box.y0 - h * 0.4} width={W} height={h * 2} fill="url(#skyGrad)" />
+      {kind === "sea" && (
+        <g>
+          <rect x={X} y={hz} width={W} height={h} fill={mixC(sky, "#0A3B58", 0.55)} />
+          <rect x={X} y={hz} width={W} height={h * 0.02 + 1.6} fill={lift(sky, 0.6)} opacity="0.8" />
+          {[0, 1, 2, 3].map((i) => (
+            <rect key={i} x={X + W * (0.1 + i * 0.22)} y={hz + h * (0.1 + i * 0.09)} width={W * 0.16} height="1.6" fill="#fff" opacity={0.3 - i * 0.05} />
+          ))}
+          <circle cx={box.x0 + w * 0.7} cy={hz - h * 0.24} r={h * 0.07} fill={lift(lamp, 0.4)} opacity="0.9" />
+        </g>
+      )}
+      {kind === "hills" && (
+        <g>
+          <path d={`M${X} ${hz + h * 0.06} Q${X + W * 0.24} ${hz - h * 0.22} ${X + W * 0.5} ${hz + h * 0.02} Q${X + W * 0.74} ${hz + h * 0.2} ${X + W} ${hz - h * 0.06} L${X + W} ${box.y1 + h} L${X} ${box.y1 + h} Z`} fill={mixC(sky, "#16321F", 0.7)} />
+          <path d={`M${X} ${hz + h * 0.2} Q${X + W * 0.3} ${hz - h * 0.02} ${X + W * 0.56} ${hz + h * 0.18} Q${X + W * 0.8} ${hz + h * 0.34} ${X + W} ${hz + h * 0.12} L${X + W} ${box.y1 + h} L${X} ${box.y1 + h} Z`} fill={mixC(sky, "#0A2214", 0.85)} />
+        </g>
+      )}
+      {kind === "city" && (
+        <g>
+          {Array.from({ length: 18 }, (_, i) => {
+            const bw = w * (0.09 + ((i * 29) % 7) * 0.012);
+            const bx = X + i * (W / 17) - bw / 2;
+            const bh = h * (0.16 + ((i * 47) % 100) / 100 * 0.62);
+            return (
+              <g key={i}>
+                <rect x={bx} y={hz - bh} width={bw} height={bh + h * 0.5} fill={mixC(deep, sky, ((i % 3) * 0.14))} />
+                <rect x={bx} y={hz - bh} width={bw} height="1.4" fill={lift(sky, 0.55)} opacity="0.6" />
+                {Array.from({ length: Math.max(1, Math.round(bh / (h * 0.075))) }, (_, k) => (
+                  (i * 7 + k * 5) % (night ? 3 : 6) === 0
+                    ? <rect key={k} x={bx + bw * 0.2} y={hz - bh + h * 0.03 + k * h * 0.075} width={bw * 0.6} height={h * 0.026} fill={lift(lamp, 0.2)} opacity={(night ? 0.62 : 0.2) + ((k % 3) * 0.12)} />
+                    : null
+                ))}
+              </g>
+            );
+          })}
+        </g>
+      )}
+    </g>
+  );
+}
+/* ---- floor: planks that run one way, with staggered seams and grain ---- */
+function PlankFloor({ theme }) {
+  const BANDS = 9, out = [];
+  for (let j = 0; j < BANDS; j++) {
+    const b0 = j / BANDS, b1 = (j + 1) / BANDS;
+    let a = -((j * 0.37) % 0.42);
+    let k = 0;
+    while (a < 1) {
+      const a1 = Math.min(1, a + 0.38 + ((j * 3 + k) % 3) * 0.09), a0 = Math.max(0, a);
+      if (a1 > 0) {
+        const v = ((j * 5 + k * 7) % 5) / 5;
+        const base = mixC(theme.floor, theme.floor2, v);
+        out.push(<polygon key={j + "-" + k} points={quad(a0, a1, b0, b1)} fill={fTop(base)} />);
+        out.push(<polyline key={j + "-" + k + "s"} points={pStr(isoPt(a1, b0), isoPt(a1, b1))} fill="none" stroke="#000" strokeOpacity="0.34" strokeWidth="1" />);
+        out.push(<polyline key={j + "-" + k + "g"} points={pStr(isoPt(a0 + 0.02, (b0 * 2 + b1) / 3), isoPt(a1 - 0.02, (b0 * 2 + b1) / 3))} fill="none" stroke="#000" strokeOpacity="0.11" strokeWidth="0.8" />);
+      }
+      a = a1; k++;
+      if (k > 8) break;
+    }
+    out.push(<polyline key={j + "-r"} points={pStr(isoPt(0, b1), isoPt(1, b1))} fill="none" stroke="#000" strokeOpacity="0.26" strokeWidth="1" />);
+  }
+  return <g>{out}</g>;
+}
+
+/* ---- the room itself: two wall slabs and a floor slab, all with thickness ---- */
+function RoomShell({ theme, win, wbox }) {
+  const T = WALL_T, H = WALL_H;
+  const P = isoPt;
+  return (
+    <g>
+      {/* floor slab, cut away on the two near edges so you can see it is solid */}
+      <polygon points={pStr(P(0, -T, -FLOOR_T), P(0, 1, -FLOOR_T), P(0, 1, 0), P(0, -T, 0))} fill={fLit(sink(theme.floor, 0.42))} />
+      <polygon points={pStr(P(0, 1, -FLOOR_T), P(1 + T, 1, -FLOOR_T), P(1 + T, 1, 0), P(0, 1, 0))} fill={fDim(sink(theme.floor, 0.42))} />
+      <polygon points={quad(0, 1 + T, -T, 1)} fill={fTop(theme.floor)} />
+      <PlankFloor theme={theme} />
+
+      {/* left wall: the window is in it, so it reads backlit and cool */}
+      <polygon points={wallQuad("left", 0, 1, 0, H)} fill={fDim(theme.wallL)} />
+      <polygon points={wallQuad("left", 0, 1, 0, H)} fill="url(#wallFall)" />
+      {/* right wall: the surface the window light actually lands on */}
+      <polygon points={wallQuad("right", 0, 1, 0, H)} fill={fLit(theme.wallR)} />
+      <polygon points={wallQuad("right", 0, 1, 0, H)} fill="url(#wallFall)" />
+      {/* vertical battens on the window wall — the dark side needs material too */}
+      {Array.from({ length: 21 }, (_, i) => {
+        const u = 0.018 + i * 0.047, p0 = LW(u, 6), p1 = LW(u, H - 6);
+        return <line key={i} x1={p0.x} y1={p0.y} x2={p1.x} y2={p1.y} stroke={i % 2 ? "#000" : lift(theme.wallL, 0.3)} strokeOpacity={i % 2 ? 0.2 : 0.09} strokeWidth={i % 2 ? 2.4 : 1.4} />;
+      })}
+      {/* panelled wainscot on the lit wall */}
+      {Array.from({ length: 5 }, (_, i) => {
+        const u0 = 0.04 + i * 0.19;
+        return <polygon key={i} points={wallQuad("right", u0, u0 + 0.15, 22, 74)} fill="none" stroke="#000" strokeOpacity="0.2" strokeWidth="1.4" />;
+      })}
+      <polygon points={wallQuad("right", 0, 1, 76, 78)} fill={theme.trim} opacity="0.28" />
+
+      {/* wall slabs seen edge-on: the caps are what make the box read as a model */}
+      <polygon points={quad(0, 1 + T, -T, 0, H)} fill={fTop(lift(theme.wallL, 0.06))} />
+      <polygon points={quad(1, 1 + T, 0, 1, H)} fill={fTop(lift(theme.wallR, 0.06))} />
+      <polygon points={pStr(P(0, -T, 0), P(0, 0, 0), P(0, 0, H), P(0, -T, H))} fill={fLit(sink(theme.wallL, 0.3))} />
+      <polygon points={pStr(P(1, 1, 0), P(1 + T, 1, 0), P(1 + T, 1, H), P(1, 1, H))} fill={fDim(sink(theme.wallR, 0.3))} />
+
+      {/* the light the window lays across the wall opposite it */}
+      <polygon style={{ mixBlendMode: "screen" }} filter="url(#poolSoft)" fill={theme.lamp} opacity="0.16"
+        points={wallQuad("right", 0.04, 0.62, win.z0 - 34, win.z1 - 26)} />
+      {/* occlusion pooling in the creases — what stops the box reading as flat */}
+      <polyline points={pStr(P(0, 0, 0), P(1, 0, 0), P(1, 1, 0))} fill="none" stroke="#04050A" strokeOpacity="0.85" strokeWidth="13" filter="url(#shSoft)" />
+      <polyline points={pStr(P(1, 0, 0), P(1, 0, H))} fill="none" stroke="#04050A" strokeOpacity="0.7" strokeWidth="10" filter="url(#shSoft)" />
+      {/* baseboards */}
+      <Box a0={0} a1={1} b0={0} b1={0.016} h={11} c={lift(theme.wallL, 0.16)} shadow={false} edge={false} />
+      <Box a0={0.984} a1={1} b0={0} b1={1} h={11} c={lift(theme.wallR, 0.16)} shadow={false} edge={false} />
+
+      {/* ---- the window: a hole with a real reveal, not a decal ---- */}
+      <clipPath id="winClip"><polygon points={pStr(P(win.u0, -T, win.z0), P(win.u1, -T, win.z0), P(win.u1, -T, win.z1), P(win.u0, -T, win.z1))} /></clipPath>
+      <g clipPath="url(#winClip)"><WindowView kind={theme.view} sky={theme.sky} lamp={theme.lamp} box={wbox} night={theme.night} /></g>
+      {/* jamb: the sill catches full sun, the return falls into shadow */}
+      <polygon points={quad(win.u0, win.u1, -T, 0, win.z0)} fill={fTop(lift(theme.wallL, 0.3))} />
+      <polygon points={pStr(P(win.u1, -T, win.z0), P(win.u1, 0, win.z0), P(win.u1, 0, win.z1), P(win.u1, -T, win.z1))} fill={fDim(theme.wallL)} />
+      {/* mullions on the inner face */}
+      <polygon points={wallQuad("left", (win.u0 + win.u1) / 2 - 0.006, (win.u0 + win.u1) / 2 + 0.006, win.z0, win.z1)} fill={mixC(theme.wallL, "#000", 0.25)} opacity="0.9" />
+      <polygon points={wallQuad("left", win.u0, win.u1, (win.z0 + win.z1) / 2 - 2.2, (win.z0 + win.z1) / 2 + 2.2)} fill={mixC(theme.wallL, "#000", 0.25)} opacity="0.9" />
+      <polygon points={wallQuad("left", win.u0 - 0.012, win.u1 + 0.012, win.z0 - 5, win.z1 + 5)} fill="none" stroke={lift(theme.wallL, 0.22)} strokeWidth="4" />
+      <Box a0={win.u0 - 0.02} a1={win.u1 + 0.02} b0={0} b1={0.032} z={win.z0 - 7} h={6} c={lift(theme.wallL, 0.34)} shadow={false} />
+      {/* bloom: a halo around the opening, not a wash over it, so you can
+          still see out. Clipped to the room so nothing fogs outside the box. */}
+      <clipPath id="roomIn">
+        <polygon points={pStr(P(0, 0, H), P(1, 0, H), P(1, 1, H), P(1, 1, 0), P(0, 1, 0), P(0, 0, 0))} />
+      </clipPath>
+      <mask id="notGlass">
+        <rect x="36" y="8" width="370" height="372" fill="#fff" />
+        <polygon points={wallQuad("left", win.u0 + 0.004, win.u1 - 0.004, win.z0 + 3, win.z1 - 3)} fill="#000" />
+      </mask>
+      <g style={{ mixBlendMode: "screen" }} clipPath="url(#roomIn)" mask="url(#notGlass)">
+        <polygon points={wallQuad("left", win.u0 - 0.016, win.u1 + 0.016, win.z0 - 6, win.z1 + 6)} fill="none" stroke={theme.lamp} strokeWidth="15" opacity="0.3" filter="url(#glowSoft)" />
+        <polygon points={wallQuad("left", win.u0, win.u1, win.z0, win.z1)} fill="none" stroke="#FFFFFF" strokeWidth="3.5" opacity="0.3" filter="url(#poolSoft)" />
+      </g>
+    </g>
+  );
+}
+
+/* the parallelogram of daylight the window lays across the floor, and the
+   air it travels through to get there */
+function SunPool({ win, theme }) {
+  const proj = (a, z) => { const p = isoPt(a, 0, 0); return { x: p.x + SUN.x * z, y: p.y + SUN.y * z }; };
+  const c0 = proj(win.u0, win.z0), c1 = proj(win.u1, win.z0), c2 = proj(win.u1, win.z1), c3 = proj(win.u0, win.z1);
+  const m = (win.u0 + win.u1) / 2;
+  return (
+    <g style={{ mixBlendMode: "screen" }}>
+      <polygon points={pStr(c0, c1, c2, c3)} fill={theme.lamp} opacity="0.38" filter="url(#poolSoft)" />
+      <polygon points={pStr(proj(m - 0.007, win.z0), proj(m + 0.007, win.z0), proj(m + 0.007, win.z1), proj(m - 0.007, win.z1))} fill="#000" opacity="0.5" style={{ mixBlendMode: "multiply" }} />
+      <g filter="url(#rayBlur)">
+        {[0, 1, 2].map((i) => {
+          const u0 = win.u0 + 0.02 + i * ((win.u1 - win.u0) / 3), u1 = u0 + (win.u1 - win.u0) / 5;
+          return (
+            <polygon key={i} className="godRay" style={{ animationDelay: `${i * 1.7}s` }} opacity={0.1 - i * 0.025} fill={theme.lamp}
+              points={pStr(isoPt(u0, 0, win.z1), isoPt(u1, 0, win.z1), proj(u1, win.z1), proj(u0, win.z1))} />
+          );
+        })}
+      </g>
+    </g>
+  );
+}
+
+/* ========================== the sets ==========================
+   Each property is a dressed set. The left wall carries the window
+   and the casework; the right wall carries what hangs. The middle
+   of the floor is left clear — that is where you stand. */
+
+const WINDOWS = {
+  none:           { u0: 0.40, u1: 0.76, z0: 52, z1: 120 },
+  prop_apt:       { u0: 0.40, u1: 0.80, z0: 46, z1: 122 },
+  prop_house:     { u0: 0.42, u1: 0.74, z0: 50, z1: 116 },
+  prop_villa:     { u0: 0.34, u1: 0.84, z0: 34, z1: 128 },
+  prop_mansion:   { u0: 0.40, u1: 0.78, z0: 40, z1: 132 },
+  prop_penthouse: { u0: 0.28, u1: 0.90, z0: 22, z1: 136 },
+  prop_island:    { u0: 0.30, u1: 0.88, z0: 30, z1: 128 },
+};
+
+/* a pendant hung from the ceiling line, with the pool it drops on the floor */
+function Pendant({ a, b, drop = 34, shade = "#F5E0B8", cord = "#2A2C34" }) {
+  const t = isoPt(a, b, WALL_H - 2), y = t.y + drop;
+  return (
+    <g>
+      <line x1={t.x} y1={t.y} x2={t.x} y2={y} stroke={cord} strokeWidth="1.6" />
+      <path d={`M${t.x - 15} ${y + 13} L${t.x + 15} ${y + 13} L${t.x + 7} ${y} L${t.x - 7} ${y} Z`} fill={fLit(shade)} />
+      <path d={`M${t.x} ${y + 13} L${t.x + 15} ${y + 13} L${t.x + 7} ${y} L${t.x} ${y} Z`} fill={fDim(shade)} />
+      <ellipse cx={t.x} cy={y + 13} rx="15" ry="5.5" fill={lift(shade, 0.55)} className="lampFlicker" />
+      <ellipse cx={t.x} cy={y + 18} rx="30" ry="16" fill={shade} opacity="0.26" filter="url(#glowSoft)" style={{ mixBlendMode: "screen" }} />
+      <ellipse cx={isoPt(a, b).x + SUN.x * 60} cy={isoPt(a, b).y + SUN.y * 60} rx="46" ry="23" fill={shade} opacity="0.13" filter="url(#glowSoft)" style={{ mixBlendMode: "screen" }} />
+    </g>
+  );
+}
+/* a clock on the wall — the cheapest way to make a room feel occupied */
+function WallClock({ side, u, z, face = "#E8E4D8", rim = "#1B1D24" }) {
+  const p = side === "left" ? LW(u, z) : RW(u, z);
+  return (
+    <g>
+      <ellipse cx={p.x + 3} cy={p.y + 4} rx="10" ry="10" fill="#04050A" opacity="0.4" filter="url(#shSoft)" />
+      <circle cx={p.x} cy={p.y} r="9.5" fill={rim} />
+      <circle cx={p.x} cy={p.y} r="7.5" fill={face} />
+      <line x1={p.x} y1={p.y} x2={p.x} y2={p.y - 5} stroke={rim} strokeWidth="1.4" strokeLinecap="round" className="clockTick" />
+      <line x1={p.x} y1={p.y} x2={p.x + 3.6} y2={p.y + 1.6} stroke={rim} strokeWidth="1.2" strokeLinecap="round" />
+    </g>
+  );
+}
+/* a small stack of books, left where someone put them down */
+function BookStack({ a, b, z = 0, colors }) {
+  return (
+    <g>
+      {colors.map((c, i) => (
+        <Box key={i} a0={a - 0.032 + (i % 2) * 0.004} a1={a + 0.032 - (i % 2) * 0.004} b0={b - 0.024} b1={b + 0.024}
+          z={z + i * 4} h={4} c={c} shadow={i === 0} so={0.3} edge={false} />
+      ))}
+    </g>
+  );
+}
+/* a side table with a vase on it */
+function SideTable({ a, b, wood, metal, vase }) {
+  return (
+    <g>
+      <Contact a0={a - 0.055} a1={a + 0.055} b0={b - 0.055} b1={b + 0.055} o={0.36} />
+      {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map((L, i) => <Cyl key={i} p={isoPt(a + L[0] * 0.04, b + L[1] * 0.04)} h={28} r={2} c={metal} />)}
+      <Box a0={a - 0.055} a1={a + 0.055} b0={b - 0.055} b1={b + 0.055} z={28} h={4} c={wood} gloss={0.28} />
+      {vase && (
+        <g>
+          <Cyl p={isoPt(a, b, 32)} h={17} r={6} rt={3.5} c={vase} />
+          {[0, 1, 2].map((i) => {
+            const q = isoPt(a, b, 49);
+            return <ellipse key={i} className="leafSway" cx={q.x + (i - 1) * 6} cy={q.y - 9 - (i % 2) * 4} rx="3.4" ry="6" fill={["#E86A8A", "#F0C25A", "#E8E4D8"][i]} transform={`rotate(${(i - 1) * 22} ${q.x + (i - 1) * 6} ${q.y})`} />;
+          })}
+        </g>
+      )}
+    </g>
+  );
+}
+function Trophies({ theme }) {
+  return (
+    <g>
+      <Box a0={0.02} a1={0.17} b0={0.02} b1={0.13} h={30} c={sink(theme.trim, 0.45)} gloss={0.2} />
+      {[0, 1, 2].map((i) => {
+        const p = isoPt(0.045 + i * 0.045, 0.075, 30);
+        return (
+          <g key={i}>
+            <ellipse cx={p.x} cy={p.y} rx="5" ry="2.5" fill={sink(theme.trim, 0.2)} />
+            <polygon className="gemGlint" style={{ animationDelay: `${i * 0.3}s` }}
+              points={`${p.x},${p.y - 20} ${p.x + 5},${p.y - 10} ${p.x},${p.y - 1} ${p.x - 5},${p.y - 10}`}
+              fill={["#F5D77A", "#B968FF", "#4FA3FF"][i]} />
+          </g>
+        );
+      })}
+    </g>
+  );
+}
+
+function RoomSet({ propId, stage, theme }) {
+  const decorated = stage >= 10;
   switch (propId) {
     case "prop_apt":
       return (
-        <>
-          <IsoRug a0={0.14} a1={0.56} b0={0.5} b1={0.86} base="#7a4a3a" accent="#C48A3D" />
-          <polygon points={wallQuad("right", 0.28, 0.62, 44, 92)} fill="#8fd4ff" opacity="0.32" />
-          <polygon points={wallQuad("right", 0.28, 0.62, 44, 92)} fill="none" stroke="#0009" strokeWidth="2" />
-          <polygon points={wallQuad("left", 0.62, 0.82, 30, 66)} fill="#2a2f3c" />
-          <polygon points={wallQuad("left", 0.66, 0.78, 36, 58)} fill="#E85D75" opacity="0.75" />
-          <IsoBox a0={0.06} a1={0.5} b0={0.58} b1={0.94} h={22} top="#9aa7c0" right="#4f5870" left="#657088" />
-          <IsoBox a0={0.06} a1={0.24} b0={0.58} b1={0.66} h={38} top="#d8dff0" right="#8d97ae" left="#a8b1c8" />
-          <IsoBox a0={0.6} a1={0.72} b0={0.16} b1={0.28} h={16} top="#6a4a30" right="#40291a" left="#553826" />
-          <IsoMug a={0.66} b={0.22} h={16} />
-          <IsoPlant a={0.12} b={0.34} scale={0.9} />
-          <IsoScreen side="right" u0={0.34} u1={0.56} h0={54} h1={82} />
-          <IsoLamp a={0.52} b={0.28} h={48} shade="#FFD9A0" flicker />
-          {[0, 1, 2, 3, 4].map((i) => {
-            const p = isoPt(0.3 + i * 0.09, 0.06);
-            return <circle key={i} className="twinkle2" cx={p.x} cy={p.y - 96} r="2.4" fill="#FFD9A0" style={{ animationDelay: `${i * 0.25}s` }} />;
-          })}
-          <IsoBox a0={0.78} a1={0.9} b0={0.68} b1={0.8} h={14} top="#c9a45a" right="#7a5f30" left="#a17f42" />
-          <IsoFrame side="left" u0={0.1} u1={0.28} h0={72} h1={106} fill="#3E6E8E" />
-          <IsoFrame side="left" u0={0.34} u1={0.46} h0={80} h1={104} fill="#8A5A9E" />
-          <IsoShelf side="right" u0={0.7} u1={0.92} h={68} colors={["#E85D75", "#54B368", "#4FA3FF", "#F5B429"]} />
-          <circle cx={rightWallPt(0.16, 88).x} cy={rightWallPt(0.16, 88).y} r="8" fill="#E8E4D8" stroke="#1a1a20" strokeWidth="1.5" />
-          <line x1={rightWallPt(0.16, 88).x} y1={rightWallPt(0.16, 88).y} x2={rightWallPt(0.16, 88).x + 4} y2={rightWallPt(0.16, 88).y - 3} stroke="#1a1a20" strokeWidth="1.2" />
-          {trophyShelf}
-        </>
+        <g>
+          <Bookcase a0={0.04} a1={0.28} b0={0.01} b1={0.15} wood="#6B4B33" back="#241A12" H={104}
+            books={[["#E85D75", "#54B368", "#4FA3FF", "#F5B429"], ["#B968FF", "#E8E4D8", "#FF9E5C"], ["#4FA3FF", "#E85D75", "#54B368", "#D8CFC0"]]} />
+          <Sofa a0={0.42} a1={0.80} b0={0.03} b1={0.27} body="#3D4356" cushion="#6C7691" pillow="#E8B25C" />
+          <Rug a0={0.34} a1={0.86} b0={0.30} b1={0.72} base="#7A4A3A" accent="#C48A3D" pattern="band" />
+          <GlassTable a0={0.48} a1={0.72} b0={0.38} b1={0.60} metal="#8A93A5" accent="#E85D75" />
+          <WallTV side="right" u0={0.26} u1={0.58} z0={64} z1={104} />
+          <Console a0={0.845} a1={0.985} b0={0.22} b1={0.62} wood="#4A4033" metal="#C9CED8" />
+          <Plant a={0.90} b={0.78} s={1.05} pot="#8A6A48" leaf="#3FA55C" />
+          <FloorLamp a={0.06} b={0.34} h={100} shade={theme.lamp} />
+          <WallArt side="right" u0={0.68} u1={0.90} z0={62} z1={104} fill="#3E6E8E" art="abstract" />
+          <Mug a={0.87} b={0.32} z={40} c="#E8E4D8" />
+          <BookStack a={0.90} b={0.50} z={40} colors={["#E85D75", "#4FA3FF", "#F5B429"]} />
+          <SideTable a={0.36} b={0.16} wood="#6B4B33" metal="#8A93A5" vase="#C9CED8" />
+          <Pendant a={0.60} b={0.52} drop={30} shade={theme.lamp} />
+          <WallClock side="right" u={0.14} z={104} />
+          {decorated && <Trophies theme={theme} />}
+        </g>
       );
     case "prop_house":
       return (
-        <>
-          <IsoRug a0={0.1} a1={0.62} b0={0.42} b1={0.9} base="#9c3232" accent="#E8B25C" />
-          <polygon points={wallQuad("left", 0.2, 0.52, 46, 94)} fill="#ffd79a" opacity="0.28" />
-          <polygon points={wallQuad("left", 0.2, 0.52, 46, 94)} fill="none" stroke="#0009" strokeWidth="2" />
-          <IsoBox a0={0.56} a1={0.72} b0={0.06} b1={0.22} h={38} top="#8a5a3a" right="#4c2f1c" left="#684226" />
-          <polygon points={wallQuad("left", 0.6, 0.7, 8, 26)} fill="#4A1A08" />
-          <polygon points={wallQuad("left", 0.61, 0.69, 8, 24)} fill="#FF7A3C" className="fireLick" />
-          <polygon points={wallQuad("left", 0.625, 0.675, 8, 18)} fill="#FFD24A" className="fireLick" style={{ animationDelay: "0.4s" }} />
-          <polygon points={wallQuad("left", 0.6, 0.7, 8, 26)} fill="none" stroke="#2a1006" strokeWidth="2" />
-          <IsoBox a0={0.5} a1={0.86} b0={0.5} b1={0.82} h={30} top="#b28a5c" right="#674f30" left="#836345" />
-          <IsoBox a0={0.5} a1={0.6} b0={0.5} b1={0.82} h={44} top="#d8b880" right="#8d6c44" left="#b3925a" />
-          <IsoBox a0={0.66} a1={0.9} b0={0.12} b1={0.24} h={40} top="#232323" right="#000" left="#141414" />
-          <IsoScreen side="right" u0={0.3} u1={0.54} h0={56} h1={86} />
-          <IsoPlant a={0.1} b={0.62} scale={0.95} pot="#6B4A2E" />
-          <IsoMug a={0.62} b={0.62} h={30} color="#D8CFC0" />
-          <IsoBox a0={0.12} a1={0.22} b0={0.08} b1={0.42} h={34} top="#7a6440" right="#463726" left="#5c4a2f" />
-          {[0, 1, 2, 3].map((i) => <rect key={i} x={isoPt(0.13 + i * 0.02, 0.24).x - 2} y={isoPt(0.13 + i * 0.02, 0.24).y - 34 - 12} width="4" height="12" fill={["#C4444B", "#3F8F52", "#4FA3FF", "#F5B429"][i]} />)}
-          <IsoLamp a={0.32} b={0.9} h={50} shade="#FFB870" flicker />
-          <IsoFrame side="right" u0={0.32} u1={0.5} h0={74} h1={106} fill="#6B8E4E" frame="#5a4429" />
-          <IsoShelf side="left" u0={0.08} u1={0.3} h={74} colors={["#C4444B", "#E8B25C", "#4FA3FF"]} />
-          <IsoShelf side="left" u0={0.08} u1={0.3} h={98} colors={["#3F8F52", "#B968FF", "#E8E4D8"]} />
-          {trophyShelf}
-        </>
+        <g>
+          <Bookcase a0={0.03} a1={0.30} b0={0.01} b1={0.16} wood="#7A5636" back="#2A1E14" H={116}
+            books={[["#C4444B", "#3F8F52", "#4FA3FF"], ["#F5B429", "#E8E4D8", "#B968FF", "#C4444B"], ["#3F8F52", "#4FA3FF", "#E8B25C"]]} />
+          <Rug a0={0.10} a1={0.66} b0={0.34} b1={0.82} base="#9C3232" accent="#E8B25C" pattern="medallion" />
+          <Sofa a0={0.44} a1={0.82} b0={0.03} b1={0.28} body="#4E5F52" cushion="#7E9483" pillow="#C4444B" />
+          <GlassTable a0={0.26} a1={0.50} b0={0.42} b1={0.64} metal="#6B5738" accent="#3F8F52" />
+          {/* hearth on the lit wall, with the fire actually spilling onto the floor */}
+          <Box a0={0.86} a1={1} b0={0.18} b1={0.56} z={0} h={56} c="#6B5B4A" gloss={0.1} />
+          <polygon points={pStr(isoPt(0.86, 0.24, 8), isoPt(0.86, 0.50, 8), isoPt(0.86, 0.50, 42), isoPt(0.86, 0.24, 42))} fill="#180C06" />
+          <g className="fireLick">
+            <polygon points={pStr(isoPt(0.86, 0.27, 8), isoPt(0.86, 0.47, 8), isoPt(0.86, 0.44, 34), isoPt(0.86, 0.30, 34))} fill="#FF7A3C" />
+            <polygon points={pStr(isoPt(0.86, 0.31, 8), isoPt(0.86, 0.43, 8), isoPt(0.86, 0.41, 26), isoPt(0.86, 0.33, 26))} fill="#FFD24A" />
+          </g>
+          <ellipse cx={isoPt(0.78, 0.38).x} cy={isoPt(0.78, 0.38).y} rx="62" ry="30" fill="#FF8A3C" opacity="0.2" filter="url(#glowSoft)" style={{ mixBlendMode: "screen" }} />
+          <WallArt side="right" u0={0.62} u1={0.86} z0={70} z1={112} fill="#6B8E4E" frame="#5A4429" art="horizon" />
+          <Plant a={0.10} b={0.74} s={1.1} pot="#6B4A2E" leaf="#3F8F52" />
+          <FloorLamp a={0.36} b={0.86} h={102} shade={theme.lamp} />
+          <SideTable a={0.36} b={0.16} wood="#7A5636" metal="#8A6A44" vase="#C4444B" />
+          <BookStack a={0.92} b={0.66} z={0} colors={["#3F8F52", "#E8B25C", "#C4444B"]} />
+          <WallClock side="right" u={0.12} z={110} face="#F0E4C8" rim="#5A4429" />
+          {decorated && <Trophies theme={theme} />}
+        </g>
       );
     case "prop_villa":
       return (
-        <>
-          <polygon points={wallQuad("right", 0.16, 0.68, 40, 100)} fill="#bdf0ff" opacity="0.3" />
-          <polygon points={wallQuad("right", 0.16, 0.68, 40, 100)} fill="none" stroke="#0007" strokeWidth="2" />
-          <polygon points={isoFloorQuad(0.5, 0.94, 0.5, 0.94)} fill="#28a8bc" opacity="0.62" />
-          <path d={`M${isoPt(0.55, 0.55).x} ${isoPt(0.55, 0.55).y} Q${isoPt(0.72, 0.72).x} ${isoPt(0.6, 0.6).y} ${isoPt(0.88, 0.88).x} ${isoPt(0.88, 0.88).y}`} stroke="#cfeff5" strokeWidth="1.5" fill="none" opacity="0.6" />
-          <IsoRug a0={0.06} a1={0.42} b0={0.55} b1={0.85} base="#e8e2d0" accent="#5CE0D8" />
-          <IsoBox a0={0.1} a1={0.36} b0={0.6} b1={0.8} h={13} top="#f0ece0" right="#a8a390" left="#c4bfa8" />
-          <IsoBox a0={0.6} a1={0.7} b0={0.12} b1={0.22} h={30} top="#4a2f1e" right="#2c1c11" left="#3a2517" />
-          {[0, 1, 2].map((i) => (
-            <ellipse key={i} cx={isoPt(0.65, 0.17).x + (i - 1) * 14} cy={isoPt(0.65, 0.17).y - 44 - (i % 2) * 6} rx="13" ry="8" fill="#3fbf6a" transform={`rotate(${(i - 1) * 22} ${isoPt(0.65, 0.17).x + (i - 1) * 14} ${isoPt(0.65, 0.17).y - 44})`} />
-          ))}
-          <IsoLamp a={0.9} b={0.42} h={54} shade="#FF9E5C" flicker />
-          <IsoLamp a={0.4} b={0.06} h={54} shade="#FF9E5C" flicker />
-          <IsoBox a0={0.02} a1={0.14} b0={0.62} b1={0.74} h={10} top="#e8e2d0" right="#a8a390" left="#c4bfa8" />
-          <IsoFrame side="left" u0={0.12} u1={0.34} h0={70} h1={102} fill="#2E8C9E" frame="#e8e2d0" />
-          <IsoShelf side="left" u0={0.46} u1={0.66} h={72} colors={["#5CE0D8", "#e8e2d0", "#FF9E5C"]} />
-          <IsoPlant a={0.1} b={0.3} scale={1} pot="#D8CFB8" leaf="#3FBF6A" />
-          <IsoMug a={0.2} b={0.7} h={13} color="#F0ECE0" />
-          {trophyShelf}
-        </>
+        <g>
+          {/* the plunge pool is cut into the terrace behind the room */}
+          <Pool a0={0.62} a1={0.97} b0={0.06} b1={0.42} deep="#0E5C6B" water="#28A8BC" />
+          <Rug a0={0.04} a1={0.46} b0={0.40} b1={0.80} base="#E8E2D0" accent="#5CE0D8" pattern="band" />
+          <Sofa a0={0.06} a1={0.44} b0={0.03} b1={0.28} body="#DCD6C4" cushion="#F0ECE0" pillow="#5CE0D8" />
+          <GlassTable a0={0.14} a1={0.38} b0={0.48} b1={0.70} metal="#B8AE96" accent="#FF9E5C" />
+          <Sideboard a0={0.04} a1={0.30} b0={0.02} b1={0.16} wood="#C4B396" metal="#7EE8DC" />
+          <Plant a={0.55} b={0.10} s={1.0} pot="#D8CFB8" leaf="#3FBF6A" />
+          <Plant a={0.10} b={0.36} s={0.8} pot="#D8CFB8" leaf="#2F9A55" />
+          <FloorLamp a={0.90} b={0.30} h={106} shade={theme.lamp} />
+          <SideTable a={0.50} b={0.16} wood="#C4B396" metal="#7EE8DC" vase="#5CE0D8" />
+          <WallArt side="right" u0={0.12} u1={0.32} z0={70} z1={112} fill="#2E8C9E" frame="#E8E2D0" art="horizon" />
+          <WallArt side="right" u0={0.36} u1={0.52} z0={76} z1={108} fill="#E0A46A" frame="#E8E2D0" art="abstract" />
+          <WallClock side="right" u={0.62} z={104} face="#F0ECE0" rim="#2E5C63" />
+          <Pendant a={0.30} b={0.42} drop={26} shade="#F5EBD8" />
+          {decorated && <Trophies theme={theme} />}
+        </g>
       );
     case "prop_mansion":
       return (
-        <>
-          <IsoRug a0={0.08} a1={0.5} b0={0.5} b1={0.92} base="#4a2a52" accent="#F0C25A" />
-          <polygon points={wallQuad("left", 0.15, 0.55, 38, 108)} fill="#e8dcff" opacity="0.22" />
-          <path d={wallQuad("left", 0.15, 0.55, 38, 108).split(" ").map((p, i) => (i === 0 ? "M" + p : "L" + p)).join(" ") + " Z"} fill="none" stroke="#D8B45E" strokeWidth="1.5" opacity="0.6" />
-          <polygon points={isoFloorQuad(0.08, 0.92, 0.08, 0.92)} fill="none" stroke="#D8B45E" strokeWidth="1" opacity="0.25" />
-          <line x1={top.x} y1={top.y} x2={top.x} y2={top.y + 46} stroke="#D8B45E" strokeWidth="1.5" opacity="0.7" />
-          {[-14, 0, 14].map((dx, i) => (
-            <g key={i}>
-              <line x1={top.x} y1={top.y + 46} x2={top.x + dx} y2={top.y + 70} stroke="#D8B45E" strokeWidth="1.2" opacity="0.6" />
-              <circle className="gemGlint" cx={top.x + dx} cy={top.y + 70} r="4" fill="#F5D77A" style={{ animationDelay: `${i * 0.3}s` }} />
-            </g>
-          ))}
-          <IsoBox a0={0.62} a1={0.76} b0={0.14} b1={0.28} h={46} top="#f0e4b8" right="#8a6c2c" left="#b8983f" />
-          <circle cx={isoPt(0.69, 0.21).x} cy={isoPt(0.69, 0.21).y - 54} r="9" fill="#F5D77A" className="gemGlint" />
-          <IsoBox a0={0.1} a1={0.34} b0={0.6} b1={0.9} h={16} top="#5a2f65" right="#331a3a" left="#452650" />
-          <IsoBox a0={0.06} a1={0.14} b0={0.06} b1={0.14} h={92} top="#f0e4b8" right="#8a6c2c" left="#b8983f" />
-          <IsoBox a0={0.82} a1={0.9} b0={0.06} b1={0.14} h={92} top="#f0e4b8" right="#8a6c2c" left="#b8983f" />
-          {[0, 1].map((i) => (
-            <rect key={i} x={isoPt(i ? 0.86 : 0.1, 0.1).x - 12} y={isoPt(i ? 0.86 : 0.1, 0.1).y - 92 - 10} width="24" height="10" rx="2" fill="#F0C25A" />
-          ))}
-          <IsoFrame side="right" u0={0.3} u1={0.5} h0={66} h1={98} fill="#5a2f65" frame="#D8B45E" />
-          <IsoFrame side="right" u0={0.58} u1={0.72} h0={72} h1={96} fill="#3E4E8E" frame="#D8B45E" />
-          <IsoShelf side="left" u0={0.62} u1={0.82} h={68} colors={["#F5D77A", "#B968FF", "#5CE0D8"]} />
-          <IsoPlant a={0.12} b={0.32} scale={1.05} pot="#B8983F" leaf="#2F8749" />
-          <IsoMug a={0.24} b={0.74} h={16} color="#F0E4B8" />
-          {trophyShelf}
-        </>
+        <g>
+          <Rug a0={0.06} a1={0.56} b0={0.36} b1={0.86} base="#4A2A52" accent="#F0C25A" pattern="medallion" />
+          <Sofa a0={0.42} a1={0.82} b0={0.03} b1={0.28} body="#5A2F65" cushion="#8A5A9E" pillow="#F0C25A" />
+          <Bookcase a0={0.03} a1={0.28} b0={0.01} b1={0.16} wood="#4A3A2E" back="#1C1218" H={122}
+            books={[["#F5D77A", "#B968FF", "#5CE0D8"], ["#E85D75", "#F0C25A", "#8A5A9E", "#E8E4D8"], ["#4FA3FF", "#F5D77A", "#B968FF"]]} />
+          <GlassTable a0={0.22} a1={0.48} b0={0.44} b1={0.66} metal="#B8983F" accent="#F0C25A" />
+          {/* gilded columns and a chandelier: the room announces itself */}
+          <Box a0={0.955} a1={1} b0={0.04} b1={0.10} h={WALL_H - 6} c="#B8983F" gloss={0.34} shadow={false} />
+          <Box a0={0.955} a1={1} b0={0.86} b1={0.92} h={WALL_H - 6} c="#B8983F" gloss={0.34} shadow={false} />
+          <polygon points={wallQuad("right", 0, 1, WALL_H - 18, WALL_H - 12)} fill="#D8B45E" opacity="0.4" />
+          <polygon points={wallQuad("left", 0, 1, WALL_H - 18, WALL_H - 12)} fill="#D8B45E" opacity="0.24" />
+          <g>
+            {(() => { const t = isoPt(0.62, 0.16, WALL_H - 4); return (
+              <g>
+                <line x1={t.x} y1={t.y} x2={t.x} y2={t.y + 26} stroke="#D8B45E" strokeWidth="2" />
+                {[-16, -5, 6, 17].map((dx, i) => (
+                  <g key={i}>
+                    <line x1={t.x} y1={t.y + 26} x2={t.x + dx} y2={t.y + 44} stroke="#D8B45E" strokeWidth="1.3" opacity="0.8" />
+                    <circle className="gemGlint" cx={t.x + dx} cy={t.y + 46} r="4.5" fill="#F5D77A" style={{ animationDelay: `${i * 0.28}s` }} />
+                  </g>
+                ))}
+                <ellipse cx={t.x} cy={t.y + 46} rx="42" ry="20" fill="#F5D77A" opacity="0.2" filter="url(#glowSoft)" style={{ mixBlendMode: "screen" }} />
+              </g>
+            ); })()}
+          </g>
+          <WallArt side="right" u0={0.26} u1={0.48} z0={66} z1={116} fill="#5A2F65" frame="#D8B45E" art="abstract" />
+          <WallArt side="right" u0={0.54} u1={0.72} z0={74} z1={112} fill="#3E4E8E" frame="#D8B45E" art="bust" />
+          <Plant a={0.12} b={0.30} s={1.0} pot="#B8983F" leaf="#2F8749" />
+          <FloorLamp a={0.86} b={0.46} h={112} shade={theme.lamp} />
+          <SideTable a={0.34} b={0.16} wood="#4A3A2E" metal="#D8B45E" vase="#F0C25A" />
+          <BookStack a={0.90} b={0.70} z={0} colors={["#F5D77A", "#5A2F65", "#B968FF"]} />
+          {decorated && <Trophies theme={theme} />}
+        </g>
+      );
+    case "prop_penthouse":
+      return (
+        <g>
+          <Rug a0={0.08} a1={0.58} b0={0.36} b1={0.84} base="#2A2E38" accent="#9FB6D8" pattern="band" />
+          <Sofa a0={0.06} a1={0.36} b0={0.03} b1={0.26} body="#22262F" cushion="#3A4150" pillow="#9FB6D8" />
+          <GlassTable a0={0.20} a1={0.46} b0={0.42} b1={0.64} metal="#8A93A5" accent="#4FA3FF" />
+          <Desk a0={0.62} a1={0.96} b0={0.10} b1={0.34} wood="#2E3138" metal="#7C8697" screen="#2E6BA8" accent="#CFE2FF" />
+          <Chair a={0.79} b={0.46} c="#20242C" metal="#8A93A5" />
+          <WallTV side="right" u0={0.56} u1={0.90} z0={62} z1={108} />
+          <FloorLamp a={0.09} b={0.62} h={116} shade={theme.lamp} />
+          <Plant a={0.88} b={0.80} s={1.0} pot="#2E3138" leaf="#2F9A55" />
+          <Pendant a={0.34} b={0.50} drop={30} shade="#CFE2FF" />
+          <BookStack a={0.90} b={0.62} z={34} colors={["#4FA3FF", "#9FB6D8", "#2E3138"]} />
+          <WallClock side="right" u={0.14} z={112} face="#CFE2FF" rim="#2E3138" />
+          <Console a0={0.865} a1={0.99} b0={0.50} b1={0.80} wood="#24272E" metal="#9FB6D8" H={34} />
+          {decorated && <Trophies theme={theme} />}
+        </g>
+      );
+    case "prop_island":
+      return (
+        <g>
+          <Pool a0={0.60} a1={0.98} b0={0.06} b1={0.44} deep="#0F6A78" water="#2FC0C8" />
+          <Rug a0={0.04} a1={0.44} b0={0.40} b1={0.80} base="#D8C8A4" accent="#3FBF6A" pattern="band" />
+          <Sofa a0={0.05} a1={0.44} b0={0.03} b1={0.28} body="#B99B70" cushion="#EFE3C6" pillow="#3FBF6A" />
+          <Sideboard a0={0.04} a1={0.28} b0={0.02} b1={0.16} wood="#9C7C50" metal="#EFE3C6" />
+          <GlassTable a0={0.12} a1={0.36} b0={0.46} b1={0.68} metal="#A98A5E" accent="#FFD08A" />
+          <Plant a={0.53} b={0.10} s={1.05} pot="#C9AF84" leaf="#3FBF6A" />
+          <Plant a={0.10} b={0.36} s={0.85} pot="#C9AF84" leaf="#2F9A55" />
+          <SideTable a={0.50} b={0.16} wood="#A98A5E" metal="#EFE3C6" vase="#3FBF6A" />
+          <Pendant a={0.28} b={0.46} drop={26} shade="#FFE6BC" />
+          <FloorLamp a={0.90} b={0.42} h={106} shade={theme.lamp} />
+          <WallArt side="right" u0={0.12} u1={0.34} z0={70} z1={110} fill="#2E9E8C" frame="#EFE3C6" art="horizon" />
+          {decorated && <Trophies theme={theme} />}
+        </g>
       );
     default:
       return (
-        <>
-          <line x1={top.x} y1={top.y} x2={top.x} y2={top.y + 34} stroke="#4a4b55" strokeWidth="1.5" />
-          <circle className="lampFlicker" cx={top.x} cy={top.y + 40} r="6" fill="#F5E7A8" opacity="0.9" />
-          <polygon points={wallQuad("right", 0.3, 0.6, 40, 82)} fill="#3a4550" opacity="0.4" />
-          <polygon points={wallQuad("right", 0.3, 0.6, 40, 82)} fill="none" stroke="#0008" strokeWidth="2" />
-          <IsoBox a0={0.66} a1={0.8} b0={0.66} b1={0.8} h={20} top="#3a3b47" right="#1e1f26" left="#2a2b33" />
-          <IsoMug a={0.73} b={0.73} h={20} color="#9AA0AE" />
-          <IsoPlant a={0.12} b={0.36} scale={0.85} pot="#4A4B55" leaf="#3A7A4C" />
-          {trophyShelf}
-        </>
+        <g>
+          {/* nothing owned yet: a bare let, one folding chair, one plant */}
+          <Box a0={0.06} a1={0.30} b0={0.02} b1={0.16} z={0} h={30} c="#3A3D46" gloss={0.1} />
+          <Mug a={0.18} b={0.10} z={30} c="#9AA0AE" />
+          <Rug a0={0.20} a1={0.60} b0={0.40} b1={0.76} base="#33363F" accent="#5A6070" pattern="band" />
+          <Chair a={0.72} b={0.30} c="#2C2F38" metal="#6A7180" />
+          <Plant a={0.10} b={0.40} s={0.9} pot="#4A4B55" leaf="#3A7A4C" />
+          <FloorLamp a={0.88} b={0.30} h={98} shade={theme.lamp} />
+          <Console a0={0.885} a1={0.99} b0={0.56} b1={0.86} wood="#2E313A" metal="#6A7180" H={28} />
+          <BookStack a={0.93} b={0.70} z={26} colors={["#4A4D58", "#5A6070"]} />
+          <WallClock side="right" u={0.16} z={106} face="#C8CCD6" rim="#2A2D36" />
+          {stage >= 10 && <Trophies theme={theme} />}
+        </g>
       );
   }
 }
-function RoomScene({ propId, stage }) {
-  const theme = ROOM_THEMES[propId || "none"];
-  const WH = 112;
-  const W = isoPt(0, 0), N = isoPt(1, 0), E = isoPt(1, 1);
-  const Nu = { x: N.x, y: N.y - WH }, Wu = { x: W.x, y: W.y - WH }, Eu = { x: E.x, y: E.y - WH };
-  const GRID = 5;
-  const tiles = [];
-  for (let i = 0; i < GRID; i++) for (let j = 0; j < GRID; j++) {
-    tiles.push(<polygon key={`${i}-${j}`} points={isoFloorQuad(i / GRID, (i + 1) / GRID, j / GRID, (j + 1) / GRID)} fill={(i + j) % 2 === 0 ? theme.floorA : theme.floorB} stroke="rgba(0,0,0,.4)" strokeWidth="1" />);
-  }
-  /* slat wall: vertical timber battens, the detail that reads "designed" */
-  const slats = Array.from({ length: 22 }, (_, i) => {
-    const u = 0.03 + i * 0.044;
-    const a = leftWallPt(u, 6), b = leftWallPt(u, WH - 8);
-    return <line key={i} x1={a.x} y1={a.y} x2={b.x} y2={b.y}
-      stroke={i % 2 ? "#000" : theme.trim} strokeOpacity={i % 2 ? 0.34 : 0.14} strokeWidth={i % 2 ? 2.6 : 1.6} />;
-  });
-  /* the window is the room's light source; everything keys off it */
-  const winU0 = 0.3, winU1 = 0.62, winH0 = 44, winH1 = 92;
+
+/* ========================== the scene ========================== */
+function RoomScene({ propId, stage, light }) {
+  const key = ROOM_THEMES[propId] ? propId : "none";
+  const base = ROOM_THEMES[key];
+  /* the hour of the day owns the sky and the colour of the light coming
+     through it; the property owns everything the light lands on */
+  const L = light || { sky: base.sky, warm: base.lamp, night: false };
+  const theme = { ...base, sky: mixC(base.sky, L.sky, 0.62), lamp: mixC(base.lamp, L.warm, 0.45), night: L.night };
+  const win = WINDOWS[key];
+  /* the opening's screen bounds — the view outside is laid out against these */
+  const wpts = [isoPt(win.u0, -WALL_T, win.z0), isoPt(win.u1, -WALL_T, win.z0), isoPt(win.u1, -WALL_T, win.z1), isoPt(win.u0, -WALL_T, win.z1)];
+  const wbox = {
+    x0: Math.min.apply(null, wpts.map((p) => p.x)), x1: Math.max.apply(null, wpts.map((p) => p.x)),
+    y0: Math.min.apply(null, wpts.map((p) => p.y)), y1: Math.max.apply(null, wpts.map((p) => p.y)),
+  };
   return (
-    <svg viewBox="0 0 400 320" width="100%" height="100%" preserveAspectRatio="none" style={{ position: "absolute", inset: 0 }}>
+    <svg viewBox="36 8 370 372" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"
+      style={{ position: "absolute", inset: 0 }} shapeRendering="geometricPrecision">
       <defs>
-        <radialGradient id="roomVignette" cx="50%" cy="15%" r="75%"><stop offset="0%" stopColor="#000" stopOpacity="0" /><stop offset="100%" stopColor="#000" stopOpacity="0.55" /></radialGradient>
-        <radialGradient id="depthHaze" cx="0.5" cy="0.36" r="0.62">
-          <stop offset="0" stopColor="#6E7BA8" stopOpacity="0.2" />
-          <stop offset="0.6" stopColor="#3A4266" stopOpacity="0.07" />
+        <linearGradient id="skyGrad" gradientUnits="userSpaceOnUse" x1="0" y1={wbox.y0 - 12} x2="0" y2={wbox.y1 + 10}>
+          <stop offset="0" stopColor={lift(theme.sky, 0.5)} />
+          <stop offset="0.52" stopColor={lift(theme.sky, 0.16)} />
+          <stop offset="1" stopColor={mixC(lift(theme.sky, 0.24), theme.lamp, 0.68)} />
+        </linearGradient>
+        {/* one satin ramp reused on every horizontal surface */}
+        <linearGradient id="satin" x1="0" y1="0" x2="0.85" y2="1">
+          <stop offset="0" stopColor="#fff" stopOpacity="0.5" />
+          <stop offset="0.45" stopColor="#fff" stopOpacity="0.06" />
+          <stop offset="1" stopColor="#fff" stopOpacity="0" />
+        </linearGradient>
+        {/* one cylindrical ramp reused on every turned solid */}
+        <linearGradient id="turn" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#fff" stopOpacity="0.22" />
+          <stop offset="0.34" stopColor="#fff" stopOpacity="0.02" />
+          <stop offset="1" stopColor="#000" stopOpacity="0.38" />
+        </linearGradient>
+        {/* light falls off down a wall — bounce, not a flat fill */}
+        <linearGradient id="wallFall" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#fff" stopOpacity="0.07" />
+          <stop offset="0.45" stopColor="#000" stopOpacity="0" />
+          <stop offset="1" stopColor="#000" stopOpacity="0.36" />
+        </linearGradient>
+        <radialGradient id="roomVig" cx="48%" cy="38%" r="82%">
+          <stop offset="0" stopColor="#000" stopOpacity="0" />
+          <stop offset="0.7" stopColor="#000" stopOpacity="0.04" />
+          <stop offset="1" stopColor="#000" stopOpacity="0.42" />
+        </radialGradient>
+        <radialGradient id="airHaze" cx="0.5" cy="0.34" r="0.66">
+          <stop offset="0" stopColor={lift(theme.sky, 0.3)} stopOpacity="0.16" />
           <stop offset="1" stopColor="#000" stopOpacity="0" />
         </radialGradient>
-        {/* real gaussian blur is what makes occlusion read as occlusion */}
-        <filter id="aoBlur" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="3.2" /></filter>
-        <filter id="softLight" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="7" /></filter>
-        <filter id="shaftBlur" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="5" /></filter>
-        {/* light falls off with distance, so the spill fades as it travels */}
-        <linearGradient id="spill" x1="0" y1="0" x2="0.6" y2="1">
-          <stop offset="0" stopColor={theme.lamp} stopOpacity="0.42" />
-          <stop offset="0.55" stopColor={theme.lamp} stopOpacity="0.16" />
-          <stop offset="1" stopColor={theme.lamp} stopOpacity="0" />
-        </linearGradient>
-        <linearGradient id="wallGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#fff" stopOpacity="0.1" />
-          <stop offset="0.5" stopColor="#000" stopOpacity="0" />
-          <stop offset="1" stopColor="#000" stopOpacity="0.34" />
-        </linearGradient>
-        <pattern id="dither" width="3" height="3" patternUnits="userSpaceOnUse">
-          <rect width="3" height="3" fill="#000" opacity="0" />
-          <rect width="1.4" height="1.4" fill="#000" opacity="0.22" />
-          <rect x="1.5" y="1.5" width="1.4" height="1.4" fill="#000" opacity="0.22" />
-        </pattern>
+        <filter id="shSoft" x="-70%" y="-70%" width="240%" height="240%"><feGaussianBlur stdDeviation="3.4" /></filter>
+        <filter id="glowSoft" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="9" /></filter>
+        <filter id="poolSoft" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="6" /></filter>
+        <filter id="rayBlur" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="6" /></filter>
       </defs>
 
-      {/* ---- shell ---- */}
-      <polygon points={pStr(W, N, Nu, Wu)} fill={theme.wallL} />
-      <polygon points={pStr(N, E, Eu, Nu)} fill={theme.wallR} />
-      <polygon points={pStr(N, E, Eu, Nu)} fill="#000" opacity="0.22" />
-      {slats}
-      {/* vertical light gradient down both walls — bounce, not flat fill */}
-      <polygon points={pStr(W, N, Nu, Wu)} fill="url(#wallGrad)" />
-      <polygon points={pStr(N, E, Eu, Nu)} fill="url(#wallGrad)" />
-      <polygon points={pStr(W, N, Nu, Wu)} fill="url(#dither)" />
-      <polygon points={pStr(N, E, Eu, Nu)} fill="url(#dither)" />
-      <polygon points={pStr(W, N, E, isoPt(0, 1))} fill="url(#depthHaze)" />
-      <polygon points={pStr(W, N, Nu, Wu)} fill="url(#depthHaze)" />
-      <polygon points={pStr(N, E, Eu, Nu)} fill="url(#depthHaze)" />
-
-      {/* ---- floor: planks with grain, not a checkerboard ---- */}
-      <g>{tiles}</g>
-      {Array.from({ length: 10 }, (_, i) => {
-        const b = i / 10, p0 = isoPt(0, b), p1 = isoPt(1, b);
-        return <line key={i} x1={p0.x} y1={p0.y} x2={p1.x} y2={p1.y} stroke="#000" strokeOpacity="0.16" strokeWidth="0.9" />;
-      })}
-      {/* AO pooling in the crease where floor meets wall */}
-      <polyline points={pStr(W, N, E)} fill="none" stroke="#05060A" strokeOpacity="0.75" strokeWidth="9" filter="url(#aoBlur)" />
-
-      {/* ---- the window's light pool thrown across the floor ---- */}
-      <polygon points={pStr(isoPt(0.22, 0.02), isoPt(0.78, 0.02), isoPt(0.95, 0.72), isoPt(0.16, 0.62))}
-        fill="url(#spill)" filter="url(#softLight)" style={{ mixBlendMode: "screen" }} />
-
-      <polyline points={pStr(W, N, E)} fill="none" stroke={theme.trim} strokeOpacity="0.45" strokeWidth="2" />
-      <polyline points={pStr(Wu, Nu, Eu)} fill="none" stroke={theme.trim} strokeOpacity="0.3" strokeWidth="1.6" />
-
-      {furnitureFor(propId, stage)}
-
-      {/* ---- volumetric shafts, blurred so they read as air not glass ---- */}
-      <g style={{ mixBlendMode: "screen" }} filter="url(#shaftBlur)">
-        {[0, 1, 2].map((i) => {
-          const u0 = winU0 + i * 0.1, u1 = u0 + 0.055;
-          const t0 = rightWallPt(u0, winH1), t1 = rightWallPt(u1, winH1);
-          const f0 = isoPt(0.24 - i * 0.06, 0.5 + i * 0.14), f1 = isoPt(0.38 - i * 0.06, 0.6 + i * 0.14);
-          return <polygon key={i} points={pStr(t0, t1, f1, f0)} fill={theme.lamp} opacity={0.13 - i * 0.03} className="godRay" style={{ animationDelay: `${i * 1.6}s` }} />;
-        })}
-      </g>
-
-      <polygon points={pStr(W, N, E, isoPt(0, 1))} fill="url(#roomVignette)" opacity="0.35" />
+      <RoomShell theme={theme} win={win} wbox={wbox} />
+      <SunPool win={win} theme={theme} />
+      <RoomSet propId={key === "none" ? null : key} stage={stage} theme={theme} />
+      {/* atmosphere last: haze pulls the far corner back, vignette holds the eye */}
+      <polygon points={quad(0, 1 + WALL_T, -WALL_T, 1)} fill="url(#airHaze)" style={{ mixBlendMode: "screen" }} />
+      <rect x="36" y="8" width="370" height="372" fill="url(#roomVig)" />
     </svg>
   );
 }
@@ -1442,11 +2018,11 @@ function CarShowcase({ tier, size = 150 }) {
 /* the room is lit by the real clock: dawn warm, noon bright, night cold */
 function timeOfDayLight() {
   const h = new Date().getHours();
-  if (h < 5) return { tint: "#0A1030", amt: 0.5, ray: "#6E8CFF", label: "NIGHT" };
-  if (h < 8) return { tint: "#FF8A4C", amt: 0.24, ray: "#FFB870", label: "DAWN" };
-  if (h < 16) return { tint: "#FFE9C4", amt: 0.12, ray: "#FFF0D0", label: "DAY" };
-  if (h < 19) return { tint: "#FF7A4C", amt: 0.26, ray: "#FF9E5C", label: "DUSK" };
-  return { tint: "#101838", amt: 0.42, ray: "#8FA8FF", label: "NIGHT" };
+  if (h < 5) return { tint: "#0A1030", amt: 0.5, ray: "#6E8CFF", label: "NIGHT", sky: "#0C1533", warm: "#93A9F0", night: true };
+  if (h < 8) return { tint: "#FF8A4C", amt: 0.24, ray: "#FFB870", label: "DAWN", sky: "#6E7FC0", warm: "#FFB870", night: false };
+  if (h < 16) return { tint: "#FFE9C4", amt: 0.12, ray: "#FFF0D0", label: "DAY", sky: "#7FBEEA", warm: "#FFF0D0", night: false };
+  if (h < 19) return { tint: "#FF7A4C", amt: 0.26, ray: "#FF9E5C", label: "DUSK", sky: "#D97E7A", warm: "#FF9E5C", night: false };
+  return { tint: "#101838", amt: 0.42, ray: "#8FA8FF", label: "NIGHT", sky: "#0E1636", warm: "#8FA8FF", night: true };
 }
 /* ==================================================================
    INVESTOR CARD — the membership tier made physical. Tilt-reactive
@@ -1581,7 +2157,7 @@ function InvestorCard({ S, netWorth, tierInfo, pulse, burst, shake, muted, onTog
 }
 
 /* the vault: the holdings you bought, rendered as the space they'd occupy */
-function CharacterScene({ S, stage, pulse, burst, shake, muted, onToggleMute, compact }) {
+function CharacterScene({ S, stage, pulse, burst, shake, muted, onToggleMute }) {
   const { accent } = useAccent();
   const eq = useMemo(() => resolveEquipped(S.equipped), [S.equipped]);
   const { t, ref, handlers } = useTilt();
@@ -1594,6 +2170,7 @@ function CharacterScene({ S, stage, pulse, burst, shake, muted, onToggleMute, co
     setTimeout(() => setPoke(false), 480);
   }
   const elite = stage >= 17, legend = stage >= 22, decorated = stage >= 10;
+  const held = SLOTS.filter((sl) => eq[sl]).length;
   /* whatever lights the room lights everything standing in it — the lamp
      colour of the owned property, keyed against the hour of the day */
   const roomTheme = ROOM_THEMES[(eq.property && eq.property.id) || "none"];
@@ -1604,40 +2181,40 @@ function CharacterScene({ S, stage, pulse, burst, shake, muted, onToggleMute, co
   const px = (depth) => `translate3d(${t.x * depth}px, ${t.y * depth * 0.5}px, 0)`;
   return (
     <div ref={ref} {...handlers}
-      className={"mx-4 rounded-[28px] relative overflow-hidden" + (elite ? " legendRim" : "") + (shake ? " sceneShake" : "")}
-      style={{ height: compact ? 300 : 430, background: "#05050A", border: `1px solid ${legend ? "#F5B429" : C.line}`, boxShadow: SHADOW, touchAction: "none", perspective: "900px" }}>
+      className={"mx-4 rounded-[30px] relative overflow-hidden" + (elite ? " legendRim" : "") + (shake ? " sceneShake" : "")}
+      style={{ height: 348, background: "#05050A", border: `1px solid ${legend ? "#F5B429" : C.line}`, boxShadow: SHADOW, touchAction: "none", perspective: "900px" }}>
 
       {/* --- plane 1: the room shell, furthest back, moves least --- */}
       <div className="absolute inset-0" style={{ transform: px(-3), transition: "transform .2s var(--snap)" }}>
-        <RoomScene propId={eq.property && eq.property.id} stage={stage} />
+        <RoomScene propId={eq.property && eq.property.id} stage={stage} light={light} />
       </div>
 
       {/* --- volumetric god rays raking across the room --- */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden" style={{ transform: px(-6), transition: "transform .2s var(--snap)" }}>
-        {[0, 1, 2, 3].map((i) => (
+        {[0, 1].map((i) => (
           <div key={i} className="absolute godRay" style={{
-            left: `${18 + i * 15}%`, top: "-12%", width: 26 + i * 9, height: "86%",
-            background: `linear-gradient(to bottom, ${light.ray}, transparent 76%)`,
-            filter: "blur(7px)", animationDelay: `${i * 1.5}s`,
+            left: `${26 + i * 17}%`, top: "-10%", width: 22 + i * 10, height: "76%", opacity: 0.5,
+            background: `linear-gradient(to bottom, ${light.ray}, transparent 74%)`,
+            filter: "blur(9px)", animationDelay: `${i * 1.5}s`,
           }} />
         ))}
       </div>
 
       {/* --- time-of-day colour grade over the whole room --- */}
-      <div className="absolute inset-0 pointer-events-none" style={{ background: light.tint, opacity: light.amt, mixBlendMode: "soft-light" }} />
+      <div className="absolute inset-0 pointer-events-none" style={{ background: light.tint, opacity: light.amt * 0.62, mixBlendMode: "soft-light" }} />
 
       {/* --- key light cone falling where the character stands --- */}
-      <div className="absolute top-0 pointer-events-none" style={{ left: "44%", width: 150, height: "62%", transform: `translateX(-50%) ${px(-2)}`, background: `linear-gradient(180deg, ${accent}22, transparent 82%)`, clipPath: "polygon(50% 0%, 24% 100%, 76% 100%)" }} />
+      <div className="absolute top-0 pointer-events-none" style={{ left: "41%", width: 150, height: "62%", transform: `translateX(-50%) ${px(-2)}`, background: `linear-gradient(180deg, ${accent}22, transparent 82%)`, clipPath: "polygon(50% 0%, 24% 100%, 76% 100%)" }} />
 
       {/* --- plane 2: the car, parked on the floor to his right --- */}
       {eq.car && (
-        <div key={eq.car.id} className="absolute carDriveIn" style={{ left: "65%", top: "62%", transform: `translate(-50%,-50%) ${px(4)}`, transition: "transform .2s var(--snap)" }}>
-          <CarShowcase tier={carTierOf(eq.car.id)} size={104} />
+        <div key={eq.car.id} className="absolute carDriveIn" style={{ left: "62%", top: "66%", transform: `translate(-50%,-50%) ${px(4)}`, transition: "transform .2s var(--snap)" }}>
+          <CarShowcase tier={carTierOf(eq.car.id)} size={86} />
         </div>
       )}
 
       {/* --- plane 3: the hero, standing on the floor inside the room --- */}
-      <div onClick={onPoke} className="absolute" style={{ left: "36%", bottom: "14%", transform: `translateX(-50%) scale(.84) ${px(8)}`, transition: "transform .2s var(--snap)", cursor: "pointer", transformOrigin: "50% 100%" }}>
+      <div onClick={onPoke} className="absolute" style={{ left: "41%", bottom: "21%", transform: `translateX(-50%) scale(.64) ${px(8)}`, transition: "transform .2s var(--snap)", cursor: "pointer", transformOrigin: "50% 100%" }}>
         <CharacterFigure outfit={eq.outfit} headItem={eq.head && eq.head.emoji} aura={eq.aura && eq.aura.style} sidekick={eq.sidekick && eq.sidekick.emoji} tiltX={t.x * 10} tiltY={t.y * 10} pulse={pulse || poke}
           envKey={envKey} envFill={envFill} envAmt={envAmt} />
       </div>
@@ -1649,35 +2226,46 @@ function CharacterScene({ S, stage, pulse, burst, shake, muted, onToggleMute, co
         <span key={"e" + i} className="absolute rounded-full emberRise pointer-events-none" style={{ left: `${14 + i * 14}%`, bottom: 24, width: 3, height: 3, background: "#F5D77A", boxShadow: "0 0 6px #F5B429", animationDelay: `${i * 0.6}s`, animationDuration: `${4.5 + (i % 3)}s`, ["--drift"]: `${(i % 2 ? 1 : -1) * 10}px` }} />
       ))}
 
-      {/* --- HUD chrome: the card already carries tier + sound in compact --- */}
-      {!compact && (
-        <>
-          <div className="absolute top-3 left-4 px-2.5 py-1 rounded-md text-[11px] font-bold flex items-center gap-1" style={{ background: `linear-gradient(135deg, ${C.surf2}, rgba(0,0,0,.5))`, border: `1px solid ${accent}44`, color: accent, fontFamily: MONO, boxShadow: `0 0 12px ${accent}30` }}>
-            <span style={{ fontSize: 9 }}>▲</span>VAULT
-          </div>
-          <div className="absolute top-3 right-4 flex items-center gap-1.5">
+      {/* --- HUD chrome, floating over the set --- */}
+      <>
+          {/* the address, and the hour the room is being lit by */}
+          <div className="absolute top-3 left-4 flex items-center gap-1.5">
+            <div className="px-2.5 py-1 rounded-lg text-[9.5px] font-extrabold flex items-center gap-1"
+              style={{ background: "rgba(6,7,12,.62)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)", border: `1px solid ${accent}44`, color: accent, fontFamily: MONO, letterSpacing: "0.12em" }}>
+              <span style={{ fontSize: 7, opacity: 0.9 }}>▲</span>
+              {eq.property ? eq.property.name.toUpperCase() : "NO ADDRESS"}
+            </div>
             {decorated && (
-              <div className="flex items-center gap-1 px-2 py-1 rounded-md" style={{ background: "rgba(0,0,0,.45)", border: "1px solid rgba(245,180,41,.4)" }}>
-                <span className="trophyGlint text-[12px]">🏆</span>
-                <span className="text-[9px] font-bold" style={{ color: "#F5D77A", fontFamily: MONO }}>LV{stage}</span>
+              <div className="px-2 py-1 rounded-lg flex items-center gap-1"
+                style={{ background: "rgba(6,7,12,.62)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)", border: "1px solid rgba(245,180,41,.42)" }}>
+                <span className="trophyGlint text-[10px]">🏆</span>
+                <span className="text-[9px] font-extrabold" style={{ color: "#F5D77A", fontFamily: MONO }}>LV{stage}</span>
               </div>
             )}
-            <div className="px-2 py-1 rounded-md text-[8.5px] font-bold" style={{ background: "rgba(0,0,0,.45)", border: `1px solid ${C.line}`, color: C.soft, fontFamily: MONO, letterSpacing: "0.1em" }}>{light.label}</div>
-            <button onClick={onToggleMute} aria-label={muted ? "Unmute sound" : "Mute sound"}
-              className="px-2 py-1 rounded-md text-[11px] leading-none navBtn"
-              style={{ background: "rgba(0,0,0,.45)", border: `1px solid ${muted ? C.line : accent + "66"}` }}>
+          </div>
+          <div className="absolute top-3 right-4 flex items-center gap-1.5">
+            <div className="px-2 py-1 rounded-lg text-[8.5px] font-extrabold"
+              style={{ background: "rgba(6,7,12,.62)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)", border: `1px solid ${C.line}`, color: C.soft, fontFamily: MONO, letterSpacing: "0.12em" }}>{light.label}</div>
+            <button onClick={(e) => { e.stopPropagation(); onToggleMute(); }} aria-label={muted ? "Unmute sound" : "Mute sound"}
+              className="px-2 py-1 rounded-lg text-[11px] leading-none navBtn"
+              style={{ background: "rgba(6,7,12,.62)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)", border: `1px solid ${muted ? C.line : accent + "66"}` }}>
               {muted ? "🔇" : "🔊"}
             </button>
           </div>
-        </>
-      )}
-      {compact && (
-        <div className="absolute top-3 right-4 px-2 py-1 rounded-md text-[8.5px] font-bold" style={{ background: "rgba(0,0,0,.5)", border: `1px solid ${C.line}`, color: C.soft, fontFamily: MONO, letterSpacing: "0.1em" }}>{light.label}</div>
-      )}
+          {/* a scrim at the foot of the frame so the caption never fights the floor */}
+          <div className="absolute inset-x-0 bottom-0 pointer-events-none" style={{ height: 58, background: "linear-gradient(to top, rgba(5,5,10,.86), rgba(5,5,10,.3) 46%, rgba(5,5,10,0))" }} />
+          <div className="absolute bottom-3 left-4 right-4 flex items-end justify-between pointer-events-none">
+            <div>
+              <div className="text-[9px] font-extrabold" style={{ color: C.soft, fontFamily: MONO, letterSpacing: "0.14em" }}>THE VAULT</div>
+              <div className="text-[12.5px] font-bold mt-0.5" style={{ color: C.ink, fontFamily: DISPLAY }}>{held} of {SLOTS.length} classes held</div>
+            </div>
+            <div className="text-[9px] font-bold" style={{ color: "rgba(160,160,180,.75)", fontFamily: MONO }}>drag to look around</div>
+          </div>
+      </>
 
       {pulse && (
         <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute rounded-full revealRing" style={{ width: 40, height: 40, border: `2px solid ${accent}`, left: "calc(36% - 20px)", top: "62%" }} />
+          <div className="absolute rounded-full revealRing" style={{ width: 40, height: 40, border: `2px solid ${accent}`, left: "calc(41% - 20px)", top: "62%" }} />
         </div>
       )}
     </div>
@@ -2783,6 +3371,43 @@ function CollectionRow({ slot, S, tierIdx, onBuy, onEquip, lootId }) {
     </div>
   );
 }
+/* the Porto navigation: three panes over one standing set. A sliding
+   pill rather than a colour swap, because the movement is what tells
+   you the panes are siblings. */
+function PortoNav({ tab, onTab, tabs }) {
+  const { accent } = useAccent();
+  const i = Math.max(0, tabs.findIndex((t) => t.id === tab));
+  return (
+    <div className="sticky top-0 z-30 px-4 pt-2 pb-3"
+      style={{ background: "linear-gradient(to bottom, rgba(10,10,15,.96) 62%, rgba(10,10,15,0))", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)" }}>
+      <div className="relative flex p-1 rounded-2xl" style={{ background: C.surf, border: `1px solid ${C.line}`, boxShadow: "0 1px 0 rgba(255,255,255,.04) inset" }}>
+        <div className="absolute rounded-xl" aria-hidden="true"
+          style={{
+            top: 4, bottom: 4, left: `calc(${(i * 100) / tabs.length}% + 4px)`, width: `calc(${100 / tabs.length}% - 8px)`,
+            background: `linear-gradient(160deg, ${accent}, ${accent}bb)`,
+            boxShadow: `0 6px 18px -6px ${accent}cc, 0 1px 0 rgba(255,255,255,.28) inset`,
+            transition: "left .34s var(--snap)",
+          }} />
+        {tabs.map((t) => {
+          const on = t.id === tab;
+          return (
+            <button key={t.id} onClick={() => { if (!on) { Sfx.tap(); onTab(t.id); } }}
+              className="relative flex-1 py-2 rounded-xl navBtn press flex items-center justify-center gap-1.5"
+              aria-pressed={on}
+              style={{ color: on ? "#0A0A0F" : C.soft, transition: "color .22s var(--quick)" }}>
+              <span className="text-[11px] font-extrabold" style={{ fontFamily: MONO, letterSpacing: "0.07em" }}>{t.label}</span>
+              {t.badge != null && (
+                <span className="text-[9px] font-extrabold px-1 rounded"
+                  style={{ fontFamily: MONO, background: on ? "rgba(10,10,15,.18)" : C.surf2, color: on ? "#0A0A0F" : C.soft }}>{t.badge}</span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function Character({ S, totalDone, onBuyItem, onEquipItem }) {
   const { accent } = useAccent();
   const netWorth = useMemo(() => netWorthOf(S), [S.cash, S.itemsOwned, S.stock.shares, S.stock.price]);
@@ -2794,11 +3419,12 @@ function Character({ S, totalDone, onBuyItem, onEquipItem }) {
   const [shake, setShake] = useState(false);
   const [lootId, setLootId] = useState(null);
   const [muted, setMuted] = useState(() => Sfx.isMuted());
+  const [tab, setTab] = useState("account");
 
   function fire(kind, item) {
     const rar = item ? rarityForRank(ITEMS.filter((x) => x.slot === item.slot).indexOf(item)) : null;
     setPulse(true); setTimeout(() => setPulse(false), 500);
-    setBurst({ x: 0.36, y: 0.6, count: kind === "buy" ? 62 : 28, color: rar ? rar.color : accent, k: Date.now() });
+    setBurst({ x: 0.41, y: 0.6, count: kind === "buy" ? 62 : 28, color: rar ? rar.color : accent, k: Date.now() });
     if (kind === "buy") {
       Sfx.purchase();
       setShake(true); setTimeout(() => setShake(false), 720);
@@ -2808,6 +3434,7 @@ function Character({ S, totalDone, onBuyItem, onEquipItem }) {
   function buy(item) {
     if (S.cash < item.price) { Sfx.denied(); return; }
     onBuyItem(item); fire("buy", item);
+    setTab("holdings");
   }
   function equip(slot, id) {
     onEquipItem(slot, id);
@@ -2825,75 +3452,138 @@ function Character({ S, totalDone, onBuyItem, onEquipItem }) {
   const tint = { discipline: accent, energy: C.gold, focus: "#4FA3FF", streak: "#FF9E4A", consistency: C.good };
   /* every acquisition is a position; book value is what you paid for them */
   const ALLOC_COLORS = { outfit: accent, head: "#4FA3FF", watch: "#C9CED8", aura: "#B968FF", sidekick: C.good, car: "#FF9E4A", property: C.gold, art: "#FF5C72" };
-  const { bookValue, alloc } = useMemo(() => {
+  const { bookValue, alloc, ownedCount } = useMemo(() => {
     const held = ITEMS.filter((i) => S.itemsOwned.includes(i.id));
     const total = held.reduce((sum, i) => sum + i.price, 0);
     const a = SLOTS.map((slot) => {
       const v = held.filter((i) => i.slot === slot).reduce((sum, i) => sum + i.price, 0);
       return { slot, value: v, pct: total ? v / total : 0, color: ALLOC_COLORS[slot] };
     });
-    return { bookValue: total, alloc: a };
+    return { bookValue: total, alloc: a, ownedCount: held.length };
   }, [S.itemsOwned, accent]);
+  const avgForm = stats.reduce((m, x) => m + x.value, 0) / stats.length;
+
+  const TABS_P = [
+    { id: "account", label: "ACCOUNT" },
+    { id: "holdings", label: "HOLDINGS", badge: ownedCount },
+    { id: "form", label: "FORM", badge: Math.round(avgForm * 100) + "%" },
+  ];
+
   return (
     <div className="pb-6 pt-2">
-      <div className="px-6 mb-3">
-        <div className="text-[25px] font-extrabold" style={{ color: C.ink, fontFamily: DISPLAY, letterSpacing: "-0.02em" }}>Porto</div>
-        <div className="text-[13px] mt-0.5" style={{ color: C.soft }}>Your discipline is the underlying asset. Tilt the card.</div>
-      </div>
-
-      <InvestorCard S={S} netWorth={netWorth} tierInfo={tierInfo}
-        pulse={pulse} burst={burst} shake={shake} muted={muted} onToggleMute={toggleMute} />
-
-      {/* ---- book value: what the account is actually worth ---- */}
-      <div className="mx-4 mt-4 mb-5 p-4 rounded-[20px]" style={{ background: C.surf, border: `1px solid ${C.line}`, boxShadow: SHADOW }}>
-        <div className="flex items-start justify-between mb-3">
-          <div>
-            <div style={lbl}>Book value</div>
-            <div className="text-[27px] font-extrabold leading-none mt-1" style={{ color: C.ink, fontFamily: MONO, letterSpacing: "-0.02em" }}>
-              ${bookValue.toLocaleString()}
-            </div>
-          </div>
-          <div className="text-right">
-            <div style={lbl}>Tier</div>
-            <div className="text-[13px] font-extrabold mt-1" style={{ color: accent, fontFamily: MONO, letterSpacing: "0.1em" }}>{tierInfo.tier.name}</div>
-          </div>
+      <div className="px-6 mb-3 flex items-end justify-between">
+        <div>
+          <div className="text-[25px] font-extrabold leading-none" style={{ color: C.ink, fontFamily: DISPLAY, letterSpacing: "-0.02em" }}>Porto</div>
+          <div className="text-[13px] mt-1" style={{ color: C.soft }}>Everything you own, standing in one room.</div>
         </div>
-        {/* allocation across asset classes, weighted by what each cost */}
-        <div className="flex h-1.5 rounded-full overflow-hidden mb-2" style={{ background: C.surf2 }}>
-          {alloc.map((a) => a.pct > 0 && (
-            <div key={a.slot} style={{ width: `${a.pct * 100}%`, background: a.color, transition: "width .5s var(--snap)" }} />
-          ))}
-        </div>
-        <div className="flex flex-wrap gap-x-3 gap-y-1">
-          {alloc.filter((a) => a.pct > 0).map((a) => (
-            <div key={a.slot} className="flex items-center gap-1">
-              <span className="rounded-full" style={{ width: 5, height: 5, background: a.color }} />
-              <span className="text-[9px] font-bold" style={{ color: C.soft, fontFamily: MONO }}>{SLOT_LABELS[a.slot]} {Math.round(a.pct * 100)}%</span>
-            </div>
-          ))}
-          {bookValue === 0 && <span className="text-[10px]" style={{ color: C.soft, fontFamily: MONO }}>No positions yet — earn cash on Today, then acquire below.</span>}
+        <div className="text-right">
+          <div className="text-[9px] font-extrabold" style={{ color: C.soft, fontFamily: MONO, letterSpacing: "0.14em" }}>NET WORTH</div>
+          <div className="text-[15px] font-extrabold leading-none mt-1" style={{ color: accent, fontFamily: MONO, letterSpacing: "-0.02em" }}>${netWorth.toLocaleString()}</div>
         </div>
       </div>
 
-      {/* ---- performance metrics, framed the way a broker would ---- */}
-      <div style={lbl} className="px-5 mb-2">Performance</div>
-      <div className="flex justify-between px-5 mb-6">
-        {stats.map((s) => <StatRing key={s.key} label={s.label} value={s.value} glyph={s.glyph} tint={tint[s.key]} />)}
-      </div>
-
-      <div style={lbl} className="px-5 mb-2">Holdings</div>
-      {SLOTS.map((slot) => <CollectionRow key={slot} slot={slot} S={S} tierIdx={tierIdx} lootId={lootId} onBuy={buy} onEquip={equip} />)}
-
-      {/* ---- the vault: what those positions actually look like ---- */}
-      <div className="flex items-center justify-between px-5 mb-2 mt-1">
-        <div style={lbl}>The vault</div>
-        <div className="text-[10px] font-bold" style={{ color: C.soft, fontFamily: MONO }}>Drag to look around</div>
-      </div>
+      {/* ---- the hero: the set itself, above everything it explains ---- */}
       <CharacterScene S={S} stage={stage} pulse={pulse} burst={burst} shake={shake}
-        muted={muted} onToggleMute={toggleMute} compact />
-      <div className="px-6 mt-2 text-[11px]" style={{ color: C.soft }}>
-        Every position you hold shows up here — apparel on you, vehicles in the bay, real estate as the room itself.
-      </div>
+        muted={muted} onToggleMute={toggleMute} />
+
+      <div className="h-3" />
+      <PortoNav tab={tab} onTab={setTab} tabs={TABS_P} />
+
+      {tab === "account" && (
+        <div key="account" className="fadeup">
+          <InvestorCard S={S} netWorth={netWorth} tierInfo={tierInfo}
+            pulse={pulse} burst={burst} shake={shake} muted={muted} onToggleMute={toggleMute} />
+
+          {/* ---- book value: what the account is actually worth ---- */}
+          <div className="mx-4 mt-4 p-4 rounded-[20px]" style={{ background: C.surf, border: `1px solid ${C.line}`, boxShadow: SHADOW }}>
+            <div className="flex items-start justify-between mb-3">
+              <div>
+                <div style={lbl}>Book value</div>
+                <div className="text-[27px] font-extrabold leading-none mt-1" style={{ color: C.ink, fontFamily: MONO, letterSpacing: "-0.02em" }}>
+                  ${bookValue.toLocaleString()}
+                </div>
+              </div>
+              <div className="text-right">
+                <div style={lbl}>Tier</div>
+                <div className="text-[13px] font-extrabold mt-1" style={{ color: accent, fontFamily: MONO, letterSpacing: "0.1em" }}>{tierInfo.tier.name}</div>
+              </div>
+            </div>
+            {/* allocation across asset classes, weighted by what each cost */}
+            <div className="flex h-1.5 rounded-full overflow-hidden mb-2" style={{ background: C.surf2 }}>
+              {alloc.map((a) => a.pct > 0 && (
+                <div key={a.slot} style={{ width: `${a.pct * 100}%`, background: a.color, transition: "width .5s var(--snap)" }} />
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-x-3 gap-y-1">
+              {alloc.filter((a) => a.pct > 0).map((a) => (
+                <div key={a.slot} className="flex items-center gap-1">
+                  <span className="rounded-full" style={{ width: 5, height: 5, background: a.color }} />
+                  <span className="text-[9px] font-bold" style={{ color: C.soft, fontFamily: MONO }}>{SLOT_LABELS[a.slot]} {Math.round(a.pct * 100)}%</span>
+                </div>
+              ))}
+              {bookValue === 0 && <span className="text-[10px]" style={{ color: C.soft, fontFamily: MONO }}>No positions yet — earn cash on Today, then acquire under Holdings.</span>}
+            </div>
+          </div>
+
+          {tierInfo.next && (
+            <div className="mx-4 mt-3 p-4 rounded-[20px]" style={{ background: C.surf, border: `1px solid ${C.line}` }}>
+              <div className="flex items-center justify-between mb-2">
+                <div style={lbl}>Next tier</div>
+                <div className="text-[11px] font-extrabold" style={{ color: C.ink, fontFamily: MONO }}>{tierInfo.next.name}</div>
+              </div>
+              <div className="h-2 rounded-full overflow-hidden relative" style={{ background: C.surf2 }}>
+                <div style={{ width: `${tierInfo.progress * 100}%`, height: "100%", background: `linear-gradient(90deg, ${accent}, ${accent}88)`, transition: "width .6s var(--snap)" }} />
+                <div className="absolute inset-y-0 xpShine" />
+              </div>
+              <div className="text-[10px] mt-2" style={{ color: C.soft, fontFamily: MONO }}>${tierInfo.toGo.toLocaleString()} of net worth to go</div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === "holdings" && (
+        <div key="holdings" className="fadeup">
+          <div className="px-5 mb-3 text-[11.5px]" style={{ color: C.soft }}>
+            Apparel goes on you, vehicles park in the bay, real estate becomes the room itself — everything here shows up in the frame above.
+          </div>
+          {SLOTS.map((slot) => <CollectionRow key={slot} slot={slot} S={S} tierIdx={tierIdx} lootId={lootId} onBuy={buy} onEquip={equip} />)}
+        </div>
+      )}
+
+      {tab === "form" && (
+        <div key="form" className="fadeup">
+          <div className="mx-4 p-4 rounded-[20px] mb-4" style={{ background: C.surf, border: `1px solid ${C.line}`, boxShadow: SHADOW }}>
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <div style={lbl}>Composite form</div>
+                <div className="text-[27px] font-extrabold leading-none mt-1" style={{ color: C.ink, fontFamily: MONO, letterSpacing: "-0.02em" }}>{Math.round(avgForm * 100)}%</div>
+              </div>
+              <div className="text-right">
+                <div style={lbl}>Level</div>
+                <div className="text-[13px] font-extrabold mt-1" style={{ color: C.gold, fontFamily: MONO, letterSpacing: "0.1em" }}>LV {stage}</div>
+              </div>
+            </div>
+            <div className="flex justify-between">
+              {stats.map((x) => <StatRing key={x.key} label={x.label} value={x.value} glyph={x.glyph} tint={tint[x.key]} />)}
+            </div>
+          </div>
+          <div className="mx-4 p-4 rounded-[20px]" style={{ background: C.surf, border: `1px solid ${C.line}` }}>
+            <div style={lbl} className="mb-3">How each line is scored</div>
+            {[
+              ["Discipline", "share of each day's habits closed, over 14 days"],
+              ["Energy", "how much of today is already done"],
+              ["Focus", "your longest single habit streak, against 21 days"],
+              ["Streak", "consecutive days closed, against 30"],
+              ["Consistency", "days out of the last 14 you showed up at all"],
+            ].map(([k, v]) => (
+              <div key={k} className="flex gap-3 py-1.5">
+                <div className="text-[11px] font-extrabold shrink-0" style={{ color: tint[k.toLowerCase()] || C.ink, fontFamily: MONO, width: 84 }}>{k}</div>
+                <div className="text-[11px]" style={{ color: C.soft }}>{v}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
