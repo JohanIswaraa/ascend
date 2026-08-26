@@ -1064,20 +1064,32 @@ function IsoBox({ a0, a1, b0, b1, h, top, right, left }) {
   const P00 = isoPt(a0, b0), P10 = isoPt(a1, b0), P11 = isoPt(a1, b1), P01 = isoPt(a0, b1);
   const up = (p) => ({ x: p.x, y: p.y - h });
   const P00u = up(P00), P10u = up(P10), P11u = up(P11), P01u = up(P01);
+  /* AO: a blurred pool bled out from the footprint so the object is
+     bedded into the floor instead of pasted on top of it */
+  const g = 3.5;
+  const A0 = { x: P00.x - g, y: P00.y }, A1 = { x: P10.x, y: P10.y - g * 0.5 };
+  const A2 = { x: P11.x + g, y: P11.y + g * 0.5 }, A3 = { x: P01.x, y: P01.y + g };
   return (
     <g>
+      <polygon points={pStr(A0, A1, A2, A3)} fill="#05060A" opacity="0.62" filter="url(#aoBlur)" />
       <polygon points={pStr(P01, P11, P11u, P01u)} fill={left} stroke="rgba(0,0,0,.55)" strokeWidth="1.4" />
       <polygon points={pStr(P10, P11, P11u, P10u)} fill={right} stroke="rgba(0,0,0,.55)" strokeWidth="1.4" />
       <polygon points={pStr(P00u, P10u, P11u, P01u)} fill={top} stroke="rgba(0,0,0,.55)" strokeWidth="1.4" />
+      {/* crevice darkening where the vertical faces meet the top */}
+      <polyline points={pStr(P01u, P11u, P10u)} fill="none" stroke="#000" strokeOpacity="0.3" strokeWidth="2" />
+      {/* a thin lit edge along the top rim reads as a real bevel */}
+      <polyline points={pStr(P00u, P10u)} fill="none" stroke="#fff" strokeOpacity="0.16" strokeWidth="1.2" />
     </g>
   );
 }
+/* palettes tuned like an interior render: warm timber floors, muted
+   walls that let the light do the work, one accent per space */
 const ROOM_THEMES = {
-  none: { wallL: "#1c1d24", wallR: "#15161b", floorA: "#131319", floorB: "#0c0c11", trim: "#3a3b47", lamp: "#C9CDD9" },
-  prop_apt: { wallL: "#323a4a", wallR: "#262c39", floorA: "#4a3826", floorB: "#3c2c1e", trim: "#6c7690", lamp: "#FFD9A0" },
-  prop_house: { wallL: "#463726", wallR: "#37291b", floorA: "#6b4f30", floorB: "#573f26", trim: "#C48A3D", lamp: "#FFB870" },
-  prop_villa: { wallL: "#1c4a52", wallR: "#153840", floorA: "#2f8a94", floorB: "#256e78", trim: "#5CE0D8", lamp: "#FF9E5C" },
-  prop_mansion: { wallL: "#3a2a4d", wallR: "#2c1f3d", floorA: "#2a2038", floorB: "#1f1829", trim: "#F0C25A", lamp: "#F5D77A" },
+  none: { wallL: "#26282F", wallR: "#1B1D23", floorA: "#3B3229", floorB: "#332B23", trim: "#5A5F6B", lamp: "#E8D9C0" },
+  prop_apt: { wallL: "#3D4655", wallR: "#2C3340", floorA: "#7A5636", floorB: "#6A4A2E", trim: "#8D99B0", lamp: "#FFD9A0" },
+  prop_house: { wallL: "#4E5B4C", wallR: "#3A443A", floorA: "#8A6039", floorB: "#77522F", trim: "#D8A25A", lamp: "#FFC183" },
+  prop_villa: { wallL: "#2C5A60", wallR: "#1F444A", floorA: "#C4B396", floorB: "#B0A084", trim: "#7EE8DC", lamp: "#FFB07A" },
+  prop_mansion: { wallL: "#463253", wallR: "#332440", floorA: "#4A3A2E", floorB: "#3E3126", trim: "#F0C25A", lamp: "#FFE0A0" },
 };
 function IsoRug({ a0, a1, b0, b1, base, accent }) {
   return (
@@ -1310,14 +1322,17 @@ function RoomScene({ propId, stage }) {
   for (let i = 0; i < GRID; i++) for (let j = 0; j < GRID; j++) {
     tiles.push(<polygon key={`${i}-${j}`} points={isoFloorQuad(i / GRID, (i + 1) / GRID, j / GRID, (j + 1) / GRID)} fill={(i + j) % 2 === 0 ? theme.floorA : theme.floorB} stroke="rgba(0,0,0,.4)" strokeWidth="1" />);
   }
-  const panels = [0.2, 0.4, 0.6, 0.8].map((u) => (
-    <g key={u}>
-      <line x1={leftWallPt(u, 0).x} y1={leftWallPt(u, 0).y} x2={leftWallPt(u, WH).x} y2={leftWallPt(u, WH).y} stroke="rgba(0,0,0,.22)" strokeWidth="1.5" />
-      <line x1={rightWallPt(u, 0).x} y1={rightWallPt(u, 0).y} x2={rightWallPt(u, WH).x} y2={rightWallPt(u, WH).y} stroke="rgba(0,0,0,.22)" strokeWidth="1.5" />
-    </g>
-  ));
+  /* slat wall: vertical timber battens, the detail that reads "designed" */
+  const slats = Array.from({ length: 22 }, (_, i) => {
+    const u = 0.03 + i * 0.044;
+    const a = leftWallPt(u, 6), b = leftWallPt(u, WH - 8);
+    return <line key={i} x1={a.x} y1={a.y} x2={b.x} y2={b.y}
+      stroke={i % 2 ? "#000" : theme.trim} strokeOpacity={i % 2 ? 0.34 : 0.14} strokeWidth={i % 2 ? 2.6 : 1.6} />;
+  });
+  /* the window is the room's light source; everything keys off it */
+  const winU0 = 0.3, winU1 = 0.62, winH0 = 44, winH1 = 92;
   return (
-    <svg viewBox="0 0 400 320" width="100%" height="100%" preserveAspectRatio="none" shapeRendering="crispEdges" style={{ position: "absolute", inset: 0 }}>
+    <svg viewBox="0 0 400 320" width="100%" height="100%" preserveAspectRatio="none" style={{ position: "absolute", inset: 0 }}>
       <defs>
         <radialGradient id="roomVignette" cx="50%" cy="15%" r="75%"><stop offset="0%" stopColor="#000" stopOpacity="0" /><stop offset="100%" stopColor="#000" stopOpacity="0.55" /></radialGradient>
         <radialGradient id="depthHaze" cx="0.5" cy="0.36" r="0.62">
@@ -1325,28 +1340,70 @@ function RoomScene({ propId, stage }) {
           <stop offset="0.6" stopColor="#3A4266" stopOpacity="0.07" />
           <stop offset="1" stopColor="#000" stopOpacity="0" />
         </radialGradient>
+        {/* real gaussian blur is what makes occlusion read as occlusion */}
+        <filter id="aoBlur" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="3.2" /></filter>
+        <filter id="softLight" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="7" /></filter>
+        <filter id="shaftBlur" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="5" /></filter>
+        {/* light falls off with distance, so the spill fades as it travels */}
+        <linearGradient id="spill" x1="0" y1="0" x2="0.6" y2="1">
+          <stop offset="0" stopColor={theme.lamp} stopOpacity="0.42" />
+          <stop offset="0.55" stopColor={theme.lamp} stopOpacity="0.16" />
+          <stop offset="1" stopColor={theme.lamp} stopOpacity="0" />
+        </linearGradient>
+        <linearGradient id="wallGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#fff" stopOpacity="0.1" />
+          <stop offset="0.5" stopColor="#000" stopOpacity="0" />
+          <stop offset="1" stopColor="#000" stopOpacity="0.34" />
+        </linearGradient>
         <pattern id="dither" width="3" height="3" patternUnits="userSpaceOnUse">
           <rect width="3" height="3" fill="#000" opacity="0" />
-          <rect width="1.4" height="1.4" fill="#000" opacity="0.32" />
-          <rect x="1.5" y="1.5" width="1.4" height="1.4" fill="#000" opacity="0.32" />
+          <rect width="1.4" height="1.4" fill="#000" opacity="0.22" />
+          <rect x="1.5" y="1.5" width="1.4" height="1.4" fill="#000" opacity="0.22" />
         </pattern>
       </defs>
+
+      {/* ---- shell ---- */}
       <polygon points={pStr(W, N, Nu, Wu)} fill={theme.wallL} />
       <polygon points={pStr(N, E, Eu, Nu)} fill={theme.wallR} />
-      {/* the right wall turns away from the key light and sits deeper */}
-      <polygon points={pStr(N, E, Eu, Nu)} fill="#000" opacity="0.2" />
+      <polygon points={pStr(N, E, Eu, Nu)} fill="#000" opacity="0.22" />
+      {slats}
+      {/* vertical light gradient down both walls — bounce, not flat fill */}
+      <polygon points={pStr(W, N, Nu, Wu)} fill="url(#wallGrad)" />
+      <polygon points={pStr(N, E, Eu, Nu)} fill="url(#wallGrad)" />
       <polygon points={pStr(W, N, Nu, Wu)} fill="url(#dither)" />
       <polygon points={pStr(N, E, Eu, Nu)} fill="url(#dither)" />
-      {/* atmospheric perspective: depth haze pools in the back corner */}
       <polygon points={pStr(W, N, E, isoPt(0, 1))} fill="url(#depthHaze)" />
       <polygon points={pStr(W, N, Nu, Wu)} fill="url(#depthHaze)" />
       <polygon points={pStr(N, E, Eu, Nu)} fill="url(#depthHaze)" />
-      {panels}
+
+      {/* ---- floor: planks with grain, not a checkerboard ---- */}
       <g>{tiles}</g>
-      <polygon points={pStr(W, N, E, isoPt(0, 1))} fill="url(#dither)" />
-      <polyline points={pStr(W, N, E)} fill="none" stroke={theme.trim} strokeOpacity="0.5" strokeWidth="2.5" />
-      <polyline points={pStr(Wu, Nu, Eu)} fill="none" stroke={theme.trim} strokeOpacity="0.28" strokeWidth="1.5" />
+      {Array.from({ length: 10 }, (_, i) => {
+        const b = i / 10, p0 = isoPt(0, b), p1 = isoPt(1, b);
+        return <line key={i} x1={p0.x} y1={p0.y} x2={p1.x} y2={p1.y} stroke="#000" strokeOpacity="0.16" strokeWidth="0.9" />;
+      })}
+      {/* AO pooling in the crease where floor meets wall */}
+      <polyline points={pStr(W, N, E)} fill="none" stroke="#05060A" strokeOpacity="0.75" strokeWidth="9" filter="url(#aoBlur)" />
+
+      {/* ---- the window's light pool thrown across the floor ---- */}
+      <polygon points={pStr(isoPt(0.22, 0.02), isoPt(0.78, 0.02), isoPt(0.95, 0.72), isoPt(0.16, 0.62))}
+        fill="url(#spill)" filter="url(#softLight)" style={{ mixBlendMode: "screen" }} />
+
+      <polyline points={pStr(W, N, E)} fill="none" stroke={theme.trim} strokeOpacity="0.45" strokeWidth="2" />
+      <polyline points={pStr(Wu, Nu, Eu)} fill="none" stroke={theme.trim} strokeOpacity="0.3" strokeWidth="1.6" />
+
       {furnitureFor(propId, stage)}
+
+      {/* ---- volumetric shafts, blurred so they read as air not glass ---- */}
+      <g style={{ mixBlendMode: "screen" }} filter="url(#shaftBlur)">
+        {[0, 1, 2].map((i) => {
+          const u0 = winU0 + i * 0.1, u1 = u0 + 0.055;
+          const t0 = rightWallPt(u0, winH1), t1 = rightWallPt(u1, winH1);
+          const f0 = isoPt(0.24 - i * 0.06, 0.5 + i * 0.14), f1 = isoPt(0.38 - i * 0.06, 0.6 + i * 0.14);
+          return <polygon key={i} points={pStr(t0, t1, f1, f0)} fill={theme.lamp} opacity={0.13 - i * 0.03} className="godRay" style={{ animationDelay: `${i * 1.6}s` }} />;
+        })}
+      </g>
+
       <polygon points={pStr(W, N, E, isoPt(0, 1))} fill="url(#roomVignette)" opacity="0.35" />
     </svg>
   );
