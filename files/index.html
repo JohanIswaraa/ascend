@@ -590,7 +590,8 @@ const OUTFIT_CUT = {
   outfit_athletic: "hoodie",
   outfit_gold: "bomber",
 };
-function CharacterFigure({ outfit, headItem, aura, sidekick, tiltX = 0, tiltY = 0, pulse }) {
+function CharacterFigure({ outfit, headItem, aura, sidekick, tiltX = 0, tiltY = 0, pulse,
+  envKey = "#FFF2DD", envFill = "#9FB6D8", envAmt = 0.35 }) {
   const { accent } = useAccent();
   const primary = outfit ? outfit.c1 : "#454C5E";
   const secondary = outfit ? outfit.c2 : "#252A36";
@@ -655,9 +656,11 @@ function CharacterFigure({ outfit, headItem, aura, sidekick, tiltX = 0, tiltY = 
         </radialGradient>
       </defs>
 
-      {/* grounding: a tight core shadow inside a soft ambient one */}
-      <ellipse cx="75" cy="203" rx="38" ry="9.5" fill="#000" opacity="0.34" />
-      <ellipse cx="75" cy="203" rx="21" ry="5" fill="#000" opacity="0.45" />
+      {/* grounding: a soft ambient pool, a tight contact core, and a cast
+          shadow raked along the room's isometric floor by the key light */}
+      <ellipse cx="75" cy="203" rx="38" ry="9.5" fill="#000" opacity="0.3" />
+      <ellipse cx="86" cy="205" rx="30" ry="7" fill="#000" opacity="0.22" transform="rotate(-9 86 205)" />
+      <ellipse cx="75" cy="203" rx="20" ry="4.6" fill="#000" opacity="0.48" />
       {aura === "halo" && <ellipse cx="75" cy="201" rx="50" ry="11" fill="none" stroke={accent} strokeOpacity="0.5" strokeWidth="2" />}
 
       <g className={pulse ? "charPulse" : "idleBob"} style={{ transformOrigin: "75px 203px" }}>
@@ -695,7 +698,9 @@ function CharacterFigure({ outfit, headItem, aura, sidekick, tiltX = 0, tiltY = 
         {/* the plane turning away from the key light */}
         <path d="M83 62 Q99 65 98 71 L96 120 Q95 130 86 130 L83 130 Z" fill="#000" opacity="0.24" />
         {/* reflected bounce light along the shadow edge keeps it from going dead */}
-        <path d="M96 78 L97 118" fill="none" stroke={accent} strokeOpacity="0.22" strokeWidth="1.6" />
+        <path d="M96 78 L97 118" fill="none" stroke={envFill} strokeOpacity={0.25 + envAmt * 0.3} strokeWidth="1.8" />
+        {/* the room's key light grazes his lit shoulder */}
+        <path d="M56 66 Q52 74 53 88" fill="none" stroke={envKey} strokeOpacity={0.2 + envAmt * 0.35} strokeWidth="2" strokeLinecap="round" />
         {/* chest highlight */}
         <path d="M58 68 Q68 64 76 66 L73 104 Q63 106 57 100 Z" fill="#fff" opacity="0.07" />
         {/* cast shadow thrown by the jaw onto the chest — the single strongest 3D cue */}
@@ -769,18 +774,31 @@ function CharacterFigure({ outfit, headItem, aura, sidekick, tiltX = 0, tiltY = 
           <ellipse cx="53" cy="39" rx="4.4" ry="6" fill={S3} />
           <ellipse cx="53.5" cy="39" rx="2" ry="3.4" fill="#000" opacity="0.28" />
           <ellipse cx="97" cy="39" rx="3.8" ry="5.4" fill={S4} />
-          {/* rim light down the lit edge separates him from the dark room */}
-          <path d="M58 48 Q51 40 54 29 Q58 18 70 15" fill="none" stroke="#FFF2DD" strokeOpacity="0.6" strokeWidth="2.2" strokeLinecap="round" />
-          {/* bounce light from the floor, cool and faint under the jaw */}
-          <path d="M66 57 Q75 62 84 56" fill="none" stroke="#9FB6D8" strokeOpacity="0.35" strokeWidth="1.6" strokeLinecap="round" />
+          {/* rim light borrows the room's own key colour, so he belongs to it */}
+          <path d="M58 48 Q51 40 54 29 Q58 18 70 15" fill="none" stroke={envKey} strokeOpacity={0.35 + envAmt * 0.5} strokeWidth="2.4" strokeLinecap="round" />
+          {/* the far edge catches a cooler kicker from the opposite wall */}
+          <path d="M92 24 Q98 32 96 44" fill="none" stroke={envFill} strokeOpacity={0.2 + envAmt * 0.35} strokeWidth="2" strokeLinecap="round" />
+          {/* bounce light off the floor, faint under the jaw */}
+          <path d="M66 57 Q75 62 84 56" fill="none" stroke={envFill} strokeOpacity="0.35" strokeWidth="1.6" strokeLinecap="round" />
 
           {!headItem && (
             <>
               {/* hair as mass first, then a specular band, then strands */}
               <path d="M53 36 Q50 14 75 12 Q100 14 97 36 Q95 25 88 20 Q76 27 62 23 Q56 26 53 36 Z" fill={`url(#hr${u})`} />
-              <path d="M57 27 Q63 16 76 15 Q66 21 62 30 Z" fill="#8A6B4A" opacity="0.4" />
-              <path d="M60 22 Q70 16 80 17" fill="none" stroke="#6B5138" strokeOpacity="0.5" strokeWidth="1.4" strokeLinecap="round" />
-              <path d="M86 19 Q93 24 95 32" fill="none" stroke="#0F0A07" strokeOpacity="0.5" strokeWidth="1.6" strokeLinecap="round" />
+              {/* the specular band that makes hair read as hair, not felt */}
+              <path d="M56 26 Q64 15 78 14 Q68 20 63 30 Z" fill="#9C7A54" opacity="0.42" />
+              <path d="M58 24 Q66 16 76 15 Q69 20 65 27 Z" fill="#C2A077" opacity="0.3" />
+              {/* individual strands catching the light along the sweep */}
+              {[[59, 30, 68, 18], [63, 32, 73, 17], [68, 31, 79, 17], [74, 28, 84, 18]].map((k, i) => (
+                <path key={i} d={`M${k[0]} ${k[1]} Q${(k[0] + k[2]) / 2 - 2} ${(k[1] + k[3]) / 2 - 3} ${k[2]} ${k[3]}`}
+                  fill="none" stroke="#B08F66" strokeOpacity={0.3 - i * 0.05} strokeWidth="1.1" strokeLinecap="round" />
+              ))}
+              {/* the hairline breaks against the forehead instead of a hard edge */}
+              <path d="M57 31 Q63 25 70 26 Q78 27 85 23" fill="none" stroke="#1C130D" strokeOpacity="0.45" strokeWidth="1.5" strokeLinecap="round" />
+              <path d="M86 19 Q93 24 95 32" fill="none" stroke="#0F0A07" strokeOpacity="0.55" strokeWidth="1.8" strokeLinecap="round" />
+              {/* a few flyaways keep the silhouette from feeling moulded */}
+              <path d="M55 22 Q52 18 55 15" fill="none" stroke="#3A2A1D" strokeWidth="1.1" strokeLinecap="round" />
+              <path d="M92 18 Q96 15 97 12" fill="none" stroke="#2A1E14" strokeWidth="1" strokeLinecap="round" />
             </>
           )}
 
@@ -1338,6 +1356,12 @@ function CharacterScene({ S, stage, pulse, burst, shake, muted, onToggleMute }) 
     setTimeout(() => setPoke(false), 480);
   }
   const elite = stage >= 17, legend = stage >= 22, decorated = stage >= 10;
+  /* whatever lights the room lights everything standing in it — the lamp
+     colour of the owned property, keyed against the hour of the day */
+  const roomTheme = ROOM_THEMES[(eq.property && eq.property.id) || "none"];
+  const envKey = roomTheme.lamp;
+  const envFill = light.ray;
+  const envAmt = light.label === "NIGHT" ? 0.62 : light.label === "DAY" ? 0.22 : 0.44;
   /* depth planes: the further back, the less it slides under your thumb */
   const px = (depth) => `translate3d(${t.x * depth}px, ${t.y * depth * 0.5}px, 0)`;
   return (
@@ -1376,7 +1400,8 @@ function CharacterScene({ S, stage, pulse, burst, shake, muted, onToggleMute }) 
 
       {/* --- plane 3: the hero, standing on the floor inside the room --- */}
       <div onClick={onPoke} className="absolute" style={{ left: "36%", bottom: "14%", transform: `translateX(-50%) scale(.84) ${px(8)}`, transition: "transform .2s var(--snap)", cursor: "pointer", transformOrigin: "50% 100%" }}>
-        <CharacterFigure outfit={eq.outfit} headItem={eq.head && eq.head.emoji} aura={eq.aura && eq.aura.style} sidekick={eq.sidekick && eq.sidekick.emoji} tiltX={t.x * 10} tiltY={t.y * 10} pulse={pulse || poke} />
+        <CharacterFigure outfit={eq.outfit} headItem={eq.head && eq.head.emoji} aura={eq.aura && eq.aura.style} sidekick={eq.sidekick && eq.sidekick.emoji} tiltX={t.x * 10} tiltY={t.y * 10} pulse={pulse || poke}
+          envKey={envKey} envFill={envFill} envAmt={envAmt} />
       </div>
 
       {/* --- live physics particles: ambient drift + purchase sparks --- */}
