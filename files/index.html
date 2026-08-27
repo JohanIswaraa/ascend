@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-title" content="ASCEND" />
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black" />
 <meta name="theme-color" content="#0A0A0F" />
 <link rel="apple-touch-icon" href="icon-180.png" />
 <link rel="icon" href="icon-192.png" />
@@ -15,6 +15,58 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<script>
+/* iOS standalone (home-screen) reports a different viewport than Safari, and dvh
+   does not always track it. Measure innerHeight directly and keep it in a var. */
+(function () {
+  var root = document.documentElement;
+  var last = 0;
+  function isStandalone() {
+    return navigator.standalone === true ||
+           matchMedia('(display-mode: standalone)').matches;
+  }
+  function measure() {
+    /* Trust the reported viewport: with status-bar-style 'black' iOS positions the
+       webview below the status bar, so its height already fills the screen. */
+    return Math.max(window.innerHeight || 0, document.documentElement.clientHeight || 0);
+  }
+  function setAppH() {
+    var h = measure();
+    if (!h || Math.abs(h - last) < 1) return;
+    last = h;
+    root.style.setProperty('--app-h', h + 'px');
+  }
+  function applySafeBottom() {
+    if (!document.body) return;
+    var probe = document.createElement('div');
+    probe.style.cssText = 'position:fixed;bottom:0;visibility:hidden;'
+      + 'padding-bottom:env(safe-area-inset-bottom)';
+    document.body.appendChild(probe);
+    var envB = parseFloat(getComputedStyle(probe).paddingBottom) || 0;
+    probe.parentNode.removeChild(probe);
+    /* every Face ID iPhone has a 34pt home indicator; iOS just will not admit it here */
+    var hasIndicator = Math.max(screen.width, screen.height) >= 812;
+    var sb = envB > 0 ? envB : (isStandalone() && hasIndicator ? 34 : 0);
+    root.style.setProperty('--safe-bottom', sb + 'px');
+  }
+  if (document.readyState === 'loading')
+    addEventListener('DOMContentLoaded', applySafeBottom);
+  else applySafeBottom();
+
+  setAppH();
+  /* iOS can settle the standalone viewport after launch without firing resize */
+  [60, 150, 300, 600, 1200, 2000].forEach(function (d) { setTimeout(setAppH, d); });
+  addEventListener('resize', setAppH);
+  addEventListener('pageshow', setAppH);
+  addEventListener('orientationchange', function () { setTimeout(setAppH, 300); });
+  /* visualViewport fires on URL-bar collapse; ignore keyboard shrink (< 60% of screen) */
+  if (window.visualViewport) {
+    visualViewport.addEventListener('resize', function () {
+      if (visualViewport.height > window.innerHeight * 0.6) setAppH();
+    });
+  }
+})();
+</script>
 <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" integrity="sha384-DGyLxAyjq0f9SPpVevD6IgztCFlnMF6oW/XQGmfe+IsZ8TqEiDrcHkMLKI6fiB/Z" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" integrity="sha384-gTGxhz21lVGYNMcdJOyq01Edg0jhn/c22nsx0kyqP0TxaV5WVdsSH1fSDUf5YJj1" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/@babel/standalone@7.29.8/babel.min.js" integrity="sha384-Ux6uBqExf/7ahsSNrA9VI7vuaw6sKjDoVdjdUxmIoL2qdlzFVZ157sTi6JK3Z9Q8" crossorigin="anonymous"></script>
@@ -24,9 +76,12 @@
     --snap: cubic-bezier(.16,1,.3,1); --spring: cubic-bezier(.34,1.56,.64,1);
     --soft: cubic-bezier(.45,0,.55,1); --quick: cubic-bezier(.22,1,.36,1); }
   * { -webkit-touch-callout: none; box-sizing: border-box; }
+  .noscroll { scrollbar-width: none; -ms-overflow-style: none; }
+  .noscroll::-webkit-scrollbar { display: none; }
   input, textarea { -webkit-user-select: text; user-select: text; }
   ::selection { background: #7C5CFF; color: #0A0A0F; }
-  .phone-shell { position: fixed; inset: 0; overflow: hidden; }
+  .phone-shell { position: fixed; top: 0; left: 0; right: 0;
+    height: 100vh; height: 100dvh; height: var(--app-h, 100dvh); overflow: hidden; }
   .app-root { position: absolute; inset: 0; display: flex; flex-direction: column; overflow: hidden;
     background: #0A0A0F; overscroll-behavior: none; touch-action: manipulation; user-select: none;
     color: #F2F1F7; }
@@ -125,7 +180,20 @@ const START = [
   { id: 3, name: "Stretch", emoji: "🧘", base: 20, difficulty: "standard", streak: 0, best: 0, total: 0, doneToday: false, log: [] },
   { id: 4, name: "Lights out early", emoji: "🌙", base: 15, difficulty: "standard", streak: 0, best: 0, total: 0, doneToday: false, log: [] },
 ];
-const EMOJIS = ["✨", "🧘", "🥗", "💪", "🎸", "🧹", "✍️", "🌱", "☀️", "📵"];
+const HABIT_ICONS = [
+  { g: "Health",  items: ["💧", "🥗", "🍎", "🥦", "🥛", "💊", "🦷", "🧴", "😴", "🌙"] },
+  { g: "Fitness", items: ["💪", "🏃", "🚴", "🏋️", "🤸", "🏊", "🚶", "⚽", "🏀", "🥊"] },
+  { g: "Mind",    items: ["🧘", "🧠", "🕯️", "📿", "🙏", "😌", "🫁", "💭", "🌱", "☀️"] },
+  { g: "Learn",   items: ["📖", "📚", "✍️", "🎓", "🗣️", "🔬", "🧮", "💡", "📝", "🧩"] },
+  { g: "Work",    items: ["💻", "📊", "🎯", "⏰", "📋", "✅", "🚀", "📅", "🗂️", "⚡"] },
+  { g: "Home",    items: ["🧹", "🧺", "🍳", "🛏️", "🪴", "🧽", "🗑️", "🔧", "🛒", "🚗"] },
+  { g: "Social",  items: ["💬", "📞", "❤️", "🤝", "🎁", "✉️", "🫂", "👋"] },
+  { g: "Money",   items: ["💰", "📈", "🏦", "💳", "🪙", "📉", "🧾", "🏷️"] },
+  { g: "Craft",   items: ["🎸", "🎨", "📷", "🎬", "🎹", "🧶", "♟️", "🎤", "🖌️", "🎧"] },
+  { g: "Limit",   items: ["📵", "🚫", "🍔", "🍟", "🥤", "🚬", "🍺", "📺", "🎮", "⏳"] },
+  { g: "Extra",   items: ["✨", "⭐", "🔥", "🏆", "🌟", "🎉", "🌊", "🏔️", "🐾", "🌈"] },
+];
+const EMOJIS = HABIT_ICONS.reduce((a, c) => a.concat(c.items), []);
 const ASSET_ICONS = ["💰", "📈", "🏦", "💪", "⚖️", "📚", "🎯", "🏠"];
 const START_ASSETS = [{ id: 1, name: "Savings", emoji: "💰", prefix: "$", value: 0, history: [] }];
 
@@ -2424,7 +2492,7 @@ function Terra() {
           {tab === "stats" && <Stats S={S} energy={energy} totalDone={totalDone} />}
         </main>
 
-        <nav className="pt-2 px-2" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 8px)", background: "rgba(10,10,15,0.92)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", borderTop: `1px solid ${C.line}` }}>
+        <nav className="pt-2 px-2" style={{ paddingBottom: "calc(var(--safe-bottom, env(safe-area-inset-bottom)) + 8px)", background: "rgba(10,10,15,0.92)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", borderTop: `1px solid ${C.line}` }}>
           <div className="relative flex">
             <div className="absolute top-0 h-full transition-all duration-300" style={{ left: `${tabIndex * 20}%`, width: "20%", padding: "0 6px" }}>
               <div className="w-full h-full rounded-2xl" style={{ background: C.surf2, border: `1px solid ${C.line}` }} />
@@ -2441,7 +2509,7 @@ function Terra() {
                   className="relative flex-1 flex flex-col items-center gap-0.5 py-2 navBtn"
                   style={{ transform: pressedTab === key ? "scale(0.9)" : "scale(1)", transition: "transform .15s var(--quick)" }}>
                   <Icon size={19} color={on ? activeTheme.accent : C.soft} strokeWidth={on ? 2.6 : 2} />
-                  <span className="text-[9px] font-bold" style={{ color: on ? activeTheme.accent : C.soft, fontFamily: MONO, letterSpacing: "0.02em" }}>{label}</span>
+                  <span className="text-[9px] font-bold whitespace-nowrap" style={{ color: on ? activeTheme.accent : C.soft, fontFamily: MONO, letterSpacing: "0.02em" }}>{label}</span>
                 </button>
               );
             })}
@@ -2635,6 +2703,37 @@ function HabitRow({ h, idx, count, editing, onComplete, onRemove, onMove, onOpen
     </div>
   );
 }
+function IconPicker({ value, onChange, groups = HABIT_ICONS, className = "mb-2" }) {
+  const { accent } = useAccent();
+  const [cat, setCat] = useState(() => {
+    const i = groups.findIndex((g) => g.items.indexOf(value) >= 0);
+    return i < 0 ? 0 : i;
+  });
+  const items = (groups[cat] || groups[0]).items;
+  return (
+    <div className={className}>
+      <div className="flex gap-1.5 mb-2 overflow-x-auto noscroll">
+        {groups.map((g, i) => (
+          <button key={g.g} type="button" onClick={() => setCat(i)}
+            className="px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase shrink-0 press"
+            style={{ fontFamily: MONO, letterSpacing: "0.04em",
+              background: i === cat ? C.surf2 : "transparent",
+              color: i === cat ? accent : C.soft,
+              border: `1px solid ${i === cat ? accent : C.line}` }}>{g.g}</button>
+        ))}
+      </div>
+      <div className="grid gap-1.5 overflow-y-auto noscroll"
+        style={{ gridTemplateColumns: "repeat(auto-fill, minmax(34px, 1fr))", maxHeight: 120 }}>
+        {items.map((e) => (
+          <button key={e} type="button" onClick={() => onChange(e)}
+            className="text-lg rounded-xl flex items-center justify-center active:scale-90 transition-transform press"
+            style={{ height: 34, background: value === e ? C.surf2 : "transparent",
+              border: `1px solid ${value === e ? accent : "transparent"}` }}>{e}</button>
+        ))}
+      </div>
+    </div>
+  );
+}
 function AddRow({ onAdd, onCancel }) {
   const { accent } = useAccent();
   const [name, setName] = useState(""); const [emoji, setEmoji] = useState("✨");
@@ -2645,7 +2744,7 @@ function AddRow({ onAdd, onCancel }) {
   }
   return (
     <div className="p-3 rounded-[22px] mb-2" style={{ background: C.surf, border: `1px solid ${C.line}`, boxShadow: SHADOW }}>
-      <div className="flex gap-1.5 mb-2 flex-wrap">{EMOJIS.map((e) => <button key={e} onClick={() => setEmoji(e)} className="text-lg rounded-xl active:scale-90 transition-transform press" style={{ width: 32, height: 32, background: emoji === e ? C.surf2 : "transparent", border: emoji === e ? `1px solid ${accent}` : "1px solid transparent" }}>{e}</button>)}</div>
+      <IconPicker value={emoji} onChange={setEmoji} />
       <div className="flex gap-2">
         <input autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && trySave()} placeholder="New habit…" className={"flex-1 px-3 py-2 rounded-xl text-[14px] outline-none focusRing" + (shake ? " shake" : "")} style={{ background: C.surf2, color: C.ink, border: `1px solid ${shake ? C.ember : C.line}` }} />
         <button onClick={trySave} className="px-3 rounded-xl font-semibold text-[13px] uppercase hoverLift press" style={{ background: accent, color: C.app, fontFamily: MONO }}>Save</button>
@@ -2669,7 +2768,7 @@ function EditHabitSheet({ habit, onSave, onCancel }) {
     <div className="absolute inset-0 z-30 flex items-end justify-center" style={{ background: `rgba(0,0,0,${show ? 0.6 : 0})`, transition: "background .22s var(--snap)" }} onClick={() => close()}>
       <div className="w-full rounded-t-[32px] p-5" style={{ background: C.surf, border: `1px solid ${C.line}`, borderBottom: "none", transform: show ? "translateY(0)" : "translateY(28px)", opacity: show ? 1 : 0, transition: "transform .28s var(--snap), opacity .22s var(--snap)" }} onClick={(e) => e.stopPropagation()}>
         <div style={lbl} className="mb-3">Edit habit</div>
-        <div className="flex gap-1.5 mb-3 flex-wrap">{EMOJIS.map((e) => <button key={e} onClick={() => setEmoji(e)} className="text-lg rounded-xl active:scale-90 transition-transform press" style={{ width: 32, height: 32, background: emoji === e ? C.surf2 : "transparent", border: emoji === e ? `1px solid ${accent}` : "1px solid transparent" }}>{e}</button>)}</div>
+        <IconPicker value={emoji} onChange={setEmoji} className="mb-3" />
         <input value={name} onChange={(e) => setName(e.target.value)} className={"w-full px-3.5 py-2.5 rounded-xl text-[14px] outline-none mb-3 focusRing" + (shake ? " shake" : "")} style={{ background: C.surf2, color: C.ink, border: `1px solid ${shake ? C.ember : C.line}` }} />
         <div style={lbl} className="mb-2">Difficulty</div>
         <div className="flex gap-2 mb-4">
